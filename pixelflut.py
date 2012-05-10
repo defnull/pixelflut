@@ -1,5 +1,7 @@
 #coding: utf8
 
+__version__ = '0.4'
+
 import time
 from gevent import spawn, sleep as gsleep
 from gevent.server import StreamServer
@@ -9,6 +11,8 @@ from collections import deque
 
 
 class Client(object):
+    px_per_tick = 10
+    
     def __init__(self, canvas, socket, address):
         self.canvas = canvas
         self.socket = socket
@@ -16,8 +20,9 @@ class Client(object):
         self.connect_ts = time.time()
         # This buffer discards all but the newest 1024 messages
         self.sendbuffer = deque([], 1024)
+        # And this is used to limit clients to X messages per tick
+        # We start at 0 (instead of x) to add a reconnect-penalty.
         self.limit = Semaphore(0)
-        self.counter = 0
         print 'CONNECT', address
 
     def send(self, line):
@@ -25,7 +30,6 @@ class Client(object):
 
     def disconnect(self):
         print 'DISCONNECT', self.address
-        print self.counter / (time.time() - self.connect_ts)
         self.socket.close()
         del self.canvas.clients[self.address]
 
@@ -54,7 +58,6 @@ class Client(object):
         self.send('SIZE %d %d' % self.canvas.get_size())
 
     def on_PX(self, args):
-        self.counter += 1
         self.limit.acquire()
         x,y,color = args
         x,y = int(x), int(y)
@@ -72,7 +75,7 @@ class Client(object):
         self.canvas.set_pixel(x, y, r, g, b, a)
 
     def tick(self):
-        while self.limit.counter <= 10:
+        while self.limit.counter <= self.px_per_tick:
             self.limit.release()
 
 
@@ -86,18 +89,35 @@ import random
 import array
 
 class Canvas(object):
-    size  = 200,300
+    size  = 640,480
     flags = pygame.RESIZABLE#|pygame.FULLSCREEN
 
     def __init__(self):
         pygame.init()
         pygame.mixer.quit()
-        pygame.display.set_caption('PIXELSTORM')
+        pygame.display.set_caption('P1XELFLUT')
         self.screen = pygame.display.set_mode(self.size, self.flags)
         self.ticks = 0
         self.width  = self.screen.get_width()
         self.height = self.screen.get_height()
         self.clients = {}
+
+    def load_font(self, fname):
+        self.font_img = pygame.image.load(fname)
+        self.font_res = int(self.font_img.get_width())/16        
+
+    def putc(self, x, y, c):
+        if not self.font_img: return
+        fpos = ord(c)
+        fx = (fpos%16) * self.font_res
+        fy = (fpos/16) * self.font_res
+        self.screen.blit(self.font_img, (x,y),
+                         (fx,fy,self.font_res,self.font_res))
+
+    def text(self, x, y, text):
+        for i, line in enumerate(text.splitlines()):
+            for j, c in enumerate(line):
+                self.putc(x+j*self.font_res, y+i*self.font_res, c)
 
     def serve(self, host, port):
         self.server = StreamServer((host, port), self.make_client)
@@ -118,6 +138,8 @@ class Canvas(object):
                     self.on_resize(e.size)
                 if e.type == pygame.KEYDOWN and e.unicode == 'q':
                     return
+                if e.type == pygame.KEYDOWN and e.unicode == 'c':
+                    self.clear()
                 if e.type == pygame.QUIT:
                     return
             self.ticks += 1
@@ -134,6 +156,9 @@ class Canvas(object):
         self.screen.blit(old, (0,0))
         self.width  = self.screen.get_width()
         self.height = self.screen.get_height()
+
+    def clear(self):
+        self.screen.fill((0,0,0))
 
     def get_size(self):
         return self.width, self.height
@@ -152,10 +177,23 @@ class Canvas(object):
             b = (b2*(0xff-a)+(b*a)) / 0xff
             self.screen.set_at((x, y), (r,g,b))
 
-    
 
+
+def guess_IP():
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("google.com", 80))
+        return s.getsockname()[0]
+    finally:
+        s.close()
 
 
 if __name__ == '__main__':
+    port = 2342
     canvas = Canvas()
-    canvas.serve('', 2342).join()
+    task = canvas.serve('0.0.0.0', port)
+    canvas.load_font('./font.png')
+    canvas.text(5, 5, 'P1XELFLUT! v%s\nConnect to %s:%d' %
+                      (__version__, guess_IP(), port))
+    task.join()
