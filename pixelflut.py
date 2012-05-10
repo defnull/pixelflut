@@ -114,10 +114,11 @@ class Canvas(object):
         self.screen.blit(self.font_img, (x,y),
                          (fx,fy,self.font_res,self.font_res))
 
-    def text(self, x, y, text):
+    def text(self, x, y, text, delay=0):
         for i, line in enumerate(text.splitlines()):
             for j, c in enumerate(line):
                 self.putc(x+j*self.font_res, y+i*self.font_res, c)
+                if delay: gsleep(delay)
 
     def serve(self, host, port):
         self.server = StreamServer((host, port), self.make_client)
@@ -132,7 +133,7 @@ class Canvas(object):
 
     def _loop(self):
         while True:
-            gsleep(0) # Required to allow other tasks to run
+            gsleep(0.01) # Required to allow other tasks to run
             for e in pygame.event.get():
                 if e.type == pygame.VIDEORESIZE:
                     self.on_resize(e.size)
@@ -191,9 +192,15 @@ def guess_IP():
 
 if __name__ == '__main__':
     port = 2342
+    text  = 'P1XELFLUT! v%s\n' % __version__
+    text += 'Connect to %s:%d\n\n' % (guess_IP(), port)
+    text += '>>> SIZE\n'
+    text += '>>> PX x y hex-color\n'
+    text += '... and more ...\n\n'
+    text += 'H A C K  O N\n'
+
     canvas = Canvas()
     task = canvas.serve('0.0.0.0', port)
     canvas.load_font('./font.png')
-    canvas.text(5, 5, 'P1XELFLUT! v%s\nConnect to %s:%d' %
-                      (__version__, guess_IP(), port))
+    canvas.text(5, 5, text, 0.1)
     task.join()
