@@ -9,6 +9,7 @@ from gevent.coros import Semaphore
 from gevent.queue import Queue
 from collections import deque
 
+async = spawn
 
 class Client(object):
     px_per_tick = 10
@@ -38,8 +39,8 @@ class Client(object):
         readline = self.socket.makefile().readline
         try:
             while True:
-                # Idea: Sand first, recieve later. If the client is to
-                # slow to get the sendbuffer empty, he cannot send.
+                # Idea: Send first, receive later. If the client is to
+                # slow to get the send-buffer empty, he cannot send.
                 while self.sendbuffer:
                     sendall(self.sendbuffer.popleft())
                 line = readline()
@@ -51,6 +52,8 @@ class Client(object):
                     self.on_PX(arguments)
                 elif command == 'SIZE':
                     self.on_SIZE(arguments)
+                else:
+                    self.canvas.fire('COMMAND-%s' % command.upper, self, *arguments)
         finally:
             self.disconnect()
 
@@ -81,7 +84,6 @@ class Client(object):
 
 
 
-
 import pygame
 import cairo
 import math
@@ -101,25 +103,8 @@ class Canvas(object):
         self.width  = self.screen.get_width()
         self.height = self.screen.get_height()
         self.clients = {}
-
-    def load_font(self, fname):
-        self.font_img = pygame.image.load(fname)
-        self.font_res = int(self.font_img.get_width())/16        
-
-    def putc(self, x, y, c):
-        if not self.font_img: return
-        fpos = ord(c)
-        fx = (fpos%16) * self.font_res
-        fy = (fpos/16) * self.font_res
-        self.screen.blit(self.font_img, (x,y),
-                         (fx,fy,self.font_res,self.font_res))
-
-    def text(self, x, y, text, delay=0):
-        for i, line in enumerate(text.splitlines()):
-            for j, c in enumerate(line):
-                self.putc(x+j*self.font_res, y+i*self.font_res, c)
-                if delay: gsleep(delay)
-
+        self.events = {}
+    
     def serve(self, host, port):
         self.server = StreamServer((host, port), self.make_client)
         self.server.start()
@@ -129,45 +114,55 @@ class Canvas(object):
         if address in self.clients:
             self.clients[address].disconnect()
         self.clients[address] = client = Client(self, socket, address)
+        self.fire('CONNECT', client)
         client.serve() # This blocks until ready
+        self.fire('DISCONNECT', client)
 
     def _loop(self):
+        self.fire('START')
         while True:
             gsleep(0.01) # Required to allow other tasks to run
-            for e in pygame.event.get():
-                if e.type == pygame.VIDEORESIZE:
-                    self.on_resize(e.size)
-                if e.type == pygame.KEYDOWN and e.unicode == 'q':
-                    return
-                if e.type == pygame.KEYDOWN and e.unicode == 'c':
-                    self.clear()
-                if e.type == pygame.QUIT:
-                    return
+            if not self.ticks % 10:
+                for e in pygame.event.get():
+                    if e.type == pygame.VIDEORESIZE:
+                        old = self.screen.copy()
+                        self.screen = pygame.display.set_mode(e.size, self.flags)
+                        self.screen.blit(old, (0,0))
+                        self.width  = self.screen.get_width()
+                        self.height = self.screen.get_height()
+                        self.fire('RESIZE')
+                    elif e.type == pygame.QUIT:
+                        self.fire('QUIT')
+                        return
+                    elif e.type == pygame.KEYDOWN:
+                        self.fire('KEYDOWN-' + e.unicode)
             self.ticks += 1
-            if 0 and self.ticks % 1000 == 0:
-                pygame.image.save(self.screen,
-                'hist%000000d.png' % (self.ticks/1000))
+            self.fire('TICK', self.ticks)
             pygame.display.flip()
-            for client in self.clients.itervalues():
-                client.tick()
 
-    def on_resize(self, size):
-        old = self.screen.copy()
-        self.screen = pygame.display.set_mode(size, self.flags)
-        self.screen.blit(old, (0,0))
-        self.width  = self.screen.get_width()
-        self.height = self.screen.get_height()
+    def on(self, name):
+        ''' If used as a decorator, binds a function to an event. '''
+        def decorator(func):
+            self.events[name] = func
+            return func
+        return decorator
 
-    def clear(self):
-        self.screen.fill((0,0,0))
+    def fire(self, name, *a, **ka):
+        ''' Fire an event. '''
+        if name in self.events:
+            self.events[name](self, *a, **ka)
 
     def get_size(self):
+        ''' Get the current screen dimension as a (width, height) tuple.'''
         return self.width, self.height
 
     def get_pixel(self, x, y):
+        ''' Get colour of a pixel as an (r,g,b) tuple. '''
         return self.screen.get_at((x,y))
 
     def set_pixel(self, x, y, r, g, b, a=255):
+        ''' Change the colour of a pixel. If an alpha value is given, the new
+            colour is mixed with the old colour accordingly. '''
         if a == 0: return
         if a == 0xff:
             self.screen.set_at((x,y), (r,g,b))
@@ -178,29 +173,34 @@ class Canvas(object):
             b = (b2*(0xff-a)+(b*a)) / 0xff
             self.screen.set_at((x, y), (r,g,b))
 
+    def clear(self, r=0, g=0, b=0):
+        ''' Fill the entire screen with a solid colour (default: black)'''
+        self.screen.fill((r,g,b))
+
+    def save_as(self, filename):
+        ''' Save screen to disk. '''
+        pygame.image.save(self.screen, filename)
+
+    def load_font(self, fname):
+        ''' Load a font image with 16x16 sprites. '''
+        self.font_img = pygame.image.load(fname).convert()
+        self.font_res = int(self.font_img.get_width())/16        
+
+    def putc(self, x, y, c):
+        if not self.font_img:
+            self.load_font('font.png')
+        fx = (c%16) * self.font_res
+        fy = (c/16) * self.font_res
+        self.screen.blit(self.font_img, (x,y),
+                         (fx,fy,self.font_res,self.font_res))
+
+    def text(self, x, y, text, delay=0, linespace=1):
+        for i, line in enumerate(text.splitlines()):
+            line += '   '
+            for j, c in enumerate(line):
+                self.putc(x+j*self.font_res, y+i*self.font_res, ord(c))
+                gsleep(delay)
+            y += linespace
 
 
-def guess_IP():
-    import socket
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(("google.com", 80))
-        return s.getsockname()[0]
-    finally:
-        s.close()
 
-
-if __name__ == '__main__':
-    port = 2342
-    text  = 'P1XELFLUT! v%s\n' % __version__
-    text += 'Connect to %s:%d\n\n' % (guess_IP(), port)
-    text += '>>> SIZE\n'
-    text += '>>> PX x y hex-color\n'
-    text += '... and more ...\n\n'
-    text += 'H A C K  O N\n'
-
-    canvas = Canvas()
-    task = canvas.serve('0.0.0.0', port)
-    canvas.load_font('./font.png')
-    canvas.text(5, 5, text, 0.1)
-    task.join()
