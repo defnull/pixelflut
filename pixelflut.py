@@ -1,11 +1,11 @@
 #coding: utf8
 
-__version__ = '0.5'
+__version__ = '0.6'
 
 import time
 from gevent import spawn, sleep as gsleep
-from gevent.server import StreamServer
-from gevent.coros import Semaphore
+from gevent.socket import socket
+from gevent.coros import Semaphore, RLock
 from gevent.queue import Queue
 from collections import deque
 import pygame
@@ -33,6 +33,7 @@ class Client(object):
         # And this is used to limit clients to X messages per tick
         # We start at 0 (instead of x) to add a reconnect-penalty.
         self.limit = Semaphore(0)
+        self.lock = RLock()
 
     def send(self, line):
         self.sendbuffer.append(line.strip() + '\n')
@@ -42,16 +43,21 @@ class Client(object):
             self.sendbuffer.append(line.strip() + '\n')
 
     def disconnect(self):
-        if self.socket:
-            self.socket.close()
-            self.socket = None
+        with self.lock:
+            if self.socket:
+                socket = self.socket
+                self.socket = None
+                socket.close()
+                log.info('Disconnect')
 
     def serve(self, socket):
-        self.socket = socket
-        sendall = self.socket.sendall
-        readline = self.socket.makefile().readline
+        with self.lock:
+            self.socket = socket
+            sendall = self.socket.sendall
+            readline = self.socket.makefile().readline
+
         try:
-            while True:
+            while self.socket:
                 self.limit.acquire()
                 # Idea: Send first, receive later. If the client is to
                 # slow to get the send-buffer empty, he cannot send.
@@ -64,8 +70,9 @@ class Client(object):
                 command = arguments.pop(0)
                 try:
                     self.canvas.fire('COMMAND-%s' % command.upper(), self, *arguments)
-                except TypeError, e:
-                    self.nospam('ERROR %r :(' % e)
+                except Exception, e:
+                    socket.send('ERROR %r :(' % e)
+                    break
         finally:
             self.disconnect()
 
@@ -79,7 +86,7 @@ class Client(object):
 
 
 class Canvas(object):
-    size  = 640,480
+    size  = 640, 480
     flags = pygame.RESIZABLE#|pygame.FULLSCREEN
 
     def __init__(self):
@@ -95,24 +102,34 @@ class Canvas(object):
         self.font = pygame.font.Font(None, 17)
 
     def serve(self, host, port):
-        self.server = StreamServer((host, port), self.make_client)
-        self.server.start()
-        return spawn(self._loop)
+        self.host = host
+        self.port = port
 
-    def make_client(self, socket, address):
-        ip = address[0]
-        client = self.clients.get(ip)
-        if client:
+        spawn(self._loop)
+
+        self.socket = socket()
+        self.socket.bind((host, port))
+        self.socket.listen(500)
+        while True:
+            sock, addr = self.socket.accept()
+            ip, port = addr
+
+            log.info('Connect %s:%d', ip, port)
+
+            client = self.clients.get(ip)
+            if not client:
+                client = self.clients[ip] = Client(self)
+
             client.disconnect()
-        else:
-            self.clients[ip] = client = Client(self)
+            spawn(self.handle_client, client, sock)
 
+    def handle_client(self, client, sock):
         try:
             self.fire('CONNECT', client)
-            client.serve(socket) # This blocks until ready
+            client.serve(sock) # This blocks until ready
             self.fire('DISCONNECT', client)
         finally:
-            client.disconnect()
+            client.disconnect()    
 
     def _loop(self):
         while True:
@@ -214,7 +231,7 @@ class Canvas(object):
 
 
 if __name__ == '__main__':
-    logging.basicConfig()
+    logging.basicConfig(level=logging.DEBUG)
 
     import optparse
     parser = optparse.OptionParser("usage: %prog [options] brain_script")
@@ -229,7 +246,7 @@ if __name__ == '__main__':
         parser.error("incorrect number of arguments")
 
     canvas = Canvas()
-    task = canvas.serve(options.hostname, options.portnum)
+    task = spawn(canvas.serve, options.hostname, options.portnum)
     
     brainfile = args[0]
     mtime = 0

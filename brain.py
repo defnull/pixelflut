@@ -2,6 +2,8 @@ import pixelflut
 import os
 import time
 
+pixelcount = 0
+
 def guess_IP():
     import socket
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -17,13 +19,14 @@ port = 1234
 text  = 'P1XELFLUT! v%s (%d)\n' % (
     pixelflut.__version__,
     os.stat(__file__).st_mtime)
-text += 'Connect to %s:%d\n\n' % (IP, port)
-text += '>>> HELP\n'
-text += '>>> SIZE\n'
-text += '>>> TEXT x y text\n'
-text += '>>> PX x y [RRGGBB (hex)]\n'
-text += '... and more ...\n\n'
-text += 'H A C K   O N\n'
+text += '$ echo "HELP" | netcat %s %d\n' % (IP, port)
+text += 'https://github.com/defnull/pixelflut'
+
+help = 'Commands:'
+help += '>>> HELP\n'
+help += '>>> SIZE\n'
+help += '>>> TEXT x y text\n'
+help += '>>> PX x y [RRGGBB (hex)]\n'
 
 @on('LOAD')
 def callback(c):
@@ -41,7 +44,7 @@ def on_resize(c):
 @on('CONNECT')
 def on_connect(c, client):
     pass
-    #print c.clients.keys()
+    #print client
 
 @on('KEYDOWN-c')
 def on_key_c(c):
@@ -60,12 +63,13 @@ def on_key_s(c):
 
 @on('COMMAND-HELP')
 def on_help(canvas, client):
-    client.send(text)
+    client.send(help)
 
 @on('COMMAND-TEXT')
 def on_text(canvas, client, x, y, *words):
     x, y = int(x), int(y)
-    canvas.text(x, y, ' '.join(words), delay=0.1)
+    text = ' '.join(words)[:200]
+    canvas.text(x, y, text, delay=0.5)
 
 @on('COMMAND-SIZE')
 def on_size(canvas, client):
@@ -77,20 +81,24 @@ def on_quit(canvas, client):
 
 @on('COMMAND-PX')
 def on_px(canvas, client, x, y, color=None):
+    global pixelcount
+    pixelcount += 1
     client.last_pixel = time.time()
     x, y = int(x), int(y)
     if color:
         c = int(color, 16)
-        if c <= 16777215:
+        if len(color) == 6:
             r = (c & 0xff0000) >> 16
             g = (c & 0x00ff00) >> 8
             b =  c & 0x0000ff
             a =      0xff
-        else:
+        elif len(color) == 8:
             r = (c & 0xff000000) >> 24
             g = (c & 0x00ff0000) >> 16
             b = (c & 0x0000ff00) >> 8
             a =  c & 0x000000ff
+        else:
+            return
         canvas.set_pixel(x, y, r, g, b, a)
     else:
         r,g,b,a = canvas.get_pixel(x,y)
@@ -99,10 +107,16 @@ def on_px(canvas, client, x, y, color=None):
 
 
 last_save = 0
+
 @on('TICK')
 def on_tick(canvas, dt):
-    global last_save
+    global last_save, pixelcount
+    canvas.text(5, 5, text, delay=0)
+
     if time.time() > last_save:
         last_save = time.time() + 5
         canvas.save_as('save/mov_%d.png' % last_save)
-        canvas.text(5, 5, text, delay=0)
+        print len(canvas.clients)
+        canvas.text(5, 200, 'px/s %d' % (pixelcount/5), delay=0)
+        canvas.text(5, 208, 'Connections %d' % len([c for c in canvas.clients.values() if c.socket]), delay=0)
+        pixelcount = 0
