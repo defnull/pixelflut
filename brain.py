@@ -20,18 +20,19 @@ text  = 'P1XELFLUT! v%s (%d)\n' % (
     pixelflut.__version__,
     os.stat(__file__).st_mtime)
 text += '$ echo "HELP" | netcat %s %d\n' % (IP, port)
-text += 'https://github.com/defnull/pixelflut'
+text += 'https://github.com/defnull/pixelflut\n'
 
-help = 'Commands:'
+help = 'Commands:\n'
 help += '>>> HELP\n'
 help += '>>> SIZE\n'
-help += '>>> TEXT x y text\n'
-help += '>>> PX x y [RRGGBB (hex)]\n'
+help += '>>> QUIT\n'
+help += '>>> TEXT x y text (currently disabled)\n'
+help += '>>> PX x y [RRGGBB[AA]]\n'
 
 @on('LOAD')
 def callback(c):
     c.load_font('./font.png')
-    c.set_title('@  %s:%d' % (IP, port))
+    c.set_title('@  %s:%d' % (IP, c.port))
 
 @on('UNLOAD')
 def callback(canvas):
@@ -44,7 +45,6 @@ def on_resize(c):
 @on('CONNECT')
 def on_connect(c, client):
     pass
-    #print client
 
 @on('KEYDOWN-c')
 def on_key_c(c):
@@ -59,7 +59,10 @@ def on_key_s(c):
     c.save_as(mask%i)
     c.text(5,5, 'Saved as %s' % mask % i)
 
-
+@on('KEYDOWN-k')
+def on_key_k(c):
+    for ip, client in c.clients.iteritems():
+        client.disconnect()
 
 @on('COMMAND-HELP')
 def on_help(canvas, client):
@@ -69,7 +72,7 @@ def on_help(canvas, client):
 def on_text(canvas, client, x, y, *words):
     x, y = int(x), int(y)
     text = ' '.join(words)[:200]
-    canvas.text(x, y, text, delay=0.5)
+    canvas.text(x, y, text, delay=1)
 
 @on('COMMAND-SIZE')
 def on_size(canvas, client):
@@ -79,11 +82,17 @@ def on_size(canvas, client):
 def on_quit(canvas, client):
     client.disconnect()
 
+@on('COMMAND-GODMODE')
+def on_quit(canvas, client, mode):
+    if mode == 'on':
+        client.pps = 100000
+    else:
+        client.pps = 1000
+
 @on('COMMAND-PX')
 def on_px(canvas, client, x, y, color=None):
     global pixelcount
     pixelcount += 1
-    client.last_pixel = time.time()
     x, y = int(x), int(y)
     if color:
         c = int(color, 16)
@@ -107,16 +116,28 @@ def on_px(canvas, client, x, y, color=None):
 
 
 last_save = 0
+status_text = ''
+
+import math
 
 @on('TICK')
-def on_tick(canvas, dt):
-    global last_save, pixelcount
-    canvas.text(5, 5, text, delay=0)
+def on_tick(canvas):
+    global last_save, pixelcount, status_text
+    
+    canvas.text(5, 5, status_text, delay=0)
+    ccount = len([c for c in canvas.clients.values() if c.socket])
+
+    if ccount > 300:
+        for ip, client in canvas.clients.iteritems():
+            client.disconnect()
 
     if time.time() > last_save:
+        status_text = text
+        status_text +=  'px/s: %d       \n' % (pixelcount / 5)
+        status_text += 'Connections: %d' % ccount
+        pixelcount = 0
+
         last_save = time.time() + 5
         canvas.save_as('save/mov_%d.png' % last_save)
-        print len(canvas.clients)
-        canvas.text(5, 200, 'px/s %d' % (pixelcount/5), delay=0)
-        canvas.text(5, 208, 'Connections %d' % len([c for c in canvas.clients.values() if c.socket]), delay=0)
-        pixelcount = 0
+
+

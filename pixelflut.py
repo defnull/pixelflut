@@ -3,8 +3,8 @@
 __version__ = '0.6'
 
 import time
-from gevent import spawn, sleep as gsleep
-from gevent.socket import socket
+from gevent import spawn, sleep as gsleep, GreenletExit
+from gevent.socket import socket, SOL_SOCKET, SO_REUSEADDR
 from gevent.coros import Semaphore, RLock
 from gevent.queue import Queue
 from collections import deque
@@ -22,25 +22,23 @@ log = logging.getLogger('pixelflut')
 async = spawn
 
 class Client(object):
-    px_per_tick = 100
+    pps = 1000
     
     def __init__(self, canvas):
         self.canvas = canvas
         self.socket = None
         self.connect_ts = time.time()
-        # This buffer discards all but the newest 1024 messages
-        self.sendbuffer = deque([], 1024)
         # And this is used to limit clients to X messages per tick
         # We start at 0 (instead of x) to add a reconnect-penalty.
-        self.limit = Semaphore(0)
         self.lock = RLock()
 
     def send(self, line):
-        self.sendbuffer.append(line.strip() + '\n')
+        with self.lock:
+            if self.socket:
+                self.socket.sendall(line + '\n')
 
     def nospam(self, line):
-        if not self.sendbuffer:
-            self.sendbuffer.append(line.strip() + '\n')
+        self.send(line)
 
     def disconnect(self):
         with self.lock:
@@ -48,38 +46,28 @@ class Client(object):
                 socket = self.socket
                 self.socket = None
                 socket.close()
-                log.info('Disconnect')
+                self.canvas.fire('DISCONNECT', self)
 
     def serve(self, socket):
+        self.canvas.fire('CONNECT', self)
+
         with self.lock:
             self.socket = socket
-            sendall = self.socket.sendall
             readline = self.socket.makefile().readline
 
         try:
             while self.socket:
-                self.limit.acquire()
-                # Idea: Send first, receive later. If the client is to
-                # slow to get the send-buffer empty, he cannot send.
-                while self.sendbuffer:
-                    sendall(self.sendbuffer.popleft())
-                line = readline().strip()
-                if not line:
-                    break
-                arguments = line.split()
-                command = arguments.pop(0)
-                try:
-                    self.canvas.fire('COMMAND-%s' % command.upper(), self, *arguments)
-                except Exception, e:
-                    socket.send('ERROR %r :(' % e)
-                    break
+                gsleep(10.0/self.pps)
+                for i in range(10):
+                    line = readline(1024).strip()
+                    if not line:
+                        break
+                    arguments = line.split()
+                    command = arguments.pop(0)
+                    if not self.canvas.fire('COMMAND-%s' % command.upper(), self, *arguments):
+                        self.disconnect()
         finally:
             self.disconnect()
-
-    def tick(self):
-        while self.limit.counter <= self.px_per_tick:
-            self.limit.release()
-
 
 
 
@@ -94,7 +82,7 @@ class Canvas(object):
         pygame.mixer.quit()
         self.set_title()
         self.screen = pygame.display.set_mode(self.size, self.flags)
-        self.ticks = 0
+        self.frames = 0
         self.width  = self.screen.get_width()
         self.height = self.screen.get_height()
         self.clients = {}
@@ -108,33 +96,31 @@ class Canvas(object):
         spawn(self._loop)
 
         self.socket = socket()
+        self.socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         self.socket.bind((host, port))
-        self.socket.listen(500)
+        self.socket.listen(100)
         while True:
             sock, addr = self.socket.accept()
             ip, port = addr
 
-            log.info('Connect %s:%d', ip, port)
-
             client = self.clients.get(ip)
-            if not client:
+            if client:
+                client.disconnect()
+                client.task.kill()
+            else:
                 client = self.clients[ip] = Client(self)
 
-            client.disconnect()
-            spawn(self.handle_client, client, sock)
-
-    def handle_client(self, client, sock):
-        try:
-            self.fire('CONNECT', client)
-            client.serve(sock) # This blocks until ready
-            self.fire('DISCONNECT', client)
-        finally:
-            client.disconnect()    
+            client.task = spawn(client.serve, sock)
 
     def _loop(self):
+        doptim = 1.0 / 30
+        flip = pygame.display.flip
+        getevents = pygame.event.get
+        
         while True:
-            gsleep(0.01) # Required to allow other tasks to run
-            for e in pygame.event.get():
+            t1 = time.time()
+
+            for e in getevents():
                 if e.type == pygame.VIDEORESIZE:
                     old = self.screen.copy()
                     self.screen = pygame.display.set_mode(e.size, self.flags)
@@ -146,11 +132,14 @@ class Canvas(object):
                     return
                 elif e.type == pygame.KEYDOWN:
                     self.fire('KEYDOWN-' + e.unicode)
-            self.ticks += 1
-            self.fire('TICK', self.ticks)
-            for c in self.clients.values():
-                c.tick()
-            pygame.display.flip()
+
+            self.fire('TICK')
+            self.frames += 1
+
+            flip()
+
+            dt = time.time() - t1
+            gsleep(max(doptim-dt, 0))
 
     def on(self, name):
         ''' If used as a decorator, binds a function to an event. '''
@@ -164,6 +153,9 @@ class Canvas(object):
         if name in self.events:
             try:
                 self.events[name](self, *a, **ka)
+                return True
+            except GreenletExit:
+                raise
             except:
                 log.exception('Error in callback for %r', name)
 
@@ -178,16 +170,16 @@ class Canvas(object):
     def set_pixel(self, x, y, r, g, b, a=255):
         ''' Change the colour of a pixel. If an alpha value is given, the new
             colour is mixed with the old colour accordingly. '''
-        if a == 0: return
-        screen = self.screen
-        if a == 0xff:
-            screen.set_at((x, y), (r,g,b))
+        if a == 0:
+            return
+        elif a == 0xff:
+            self.screen.set_at((x, y), (r,g,b))
         elif 0 <= x < self.width and 0 <= y < self.height:
-            r2, g2, b2, a2 = screen.get_at((x, y))
+            r2, g2, b2, a2 = self.screen.get_at((x, y))
             r = (r2*(0xff-a)+(r*a)) / 0xff
             g = (g2*(0xff-a)+(g*a)) / 0xff
             b = (b2*(0xff-a)+(b*a)) / 0xff
-            screen.set_at((x, y), (r,g,b))
+            self.screen.set_at((x, y), (r,g,b))
 
     def clear(self, r=0, g=0, b=0, a=255):
         ''' Fill the entire screen with a solid colour (default: black)'''
