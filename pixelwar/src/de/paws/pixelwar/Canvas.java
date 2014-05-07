@@ -37,6 +37,10 @@ public class Canvas {
 							drawBuffer.getHeight());
 					g.dispose();
 				}
+				if (e.getKeyChar() == 'q'
+						|| e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+					System.exit(0);
+				}
 			}
 
 			@Override
