@@ -5,6 +5,7 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
@@ -18,12 +19,12 @@ import io.netty.handler.logging.LoggingHandler;
 
 public class PixelServer extends ChannelHandlerAdapter {
 
-	private final Canvas canvas;
+	private final NetCanvas canvas;
 	private final int port;
 
 	public PixelServer(int port) {
 		this.port = port;
-		this.canvas = new Canvas();
+		this.canvas = new NetCanvas();
 	}
 
 	public void run() throws InterruptedException {
@@ -39,19 +40,17 @@ public class PixelServer extends ChannelHandlerAdapter {
 						@Override
 						public void initChannel(SocketChannel ch)
 								throws Exception {
+							ChannelPipeline p = ch.pipeline();
 
-							ch.pipeline().addLast(
-									"framer",
-									new DelimiterBasedFrameDecoder(128,
-											Delimiters.lineDelimiter()));
-							ch.pipeline().addLast("decoder",
-									new StringDecoder());
-							ch.pipeline().addLast("encoder",
-									new StringEncoder());
+							// p.addLast("logger", new LoggingHandler(
+							// LogLevel.DEBUG));
+							p.addLast("framer", new DelimiterBasedFrameDecoder(
+									128, Delimiters.lineDelimiter()));
+							p.addLast("decoder", new StringDecoder());
+							p.addLast("encoder", new StringEncoder());
 
 							// and then business logic.
-							ch.pipeline().addLast("handler",
-									new PixelClientHandler(canvas));
+							p.addLast("handler", new PixelClientHandler(canvas));
 						}
 					});
 

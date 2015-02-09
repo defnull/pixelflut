@@ -1,6 +1,7 @@
 package de.paws.pixelwar;
 
 import java.awt.AlphaComposite;
+import java.awt.Canvas;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -13,7 +14,7 @@ import java.awt.image.BufferedImage;
 
 import javax.swing.JFrame;
 
-public class Canvas {
+public class NetCanvas {
 	private volatile BufferedImage drawBuffer;
 	private volatile BufferedImage overlayBuffer;
 	private volatile BufferedImage paintBuffer;
@@ -21,8 +22,9 @@ public class Canvas {
 	private final BufferStrategy strategy;
 	private final Thread refresher;
 	private final JFrame frame;
+	private final Canvas canvas;
 
-	public Canvas() {
+	public NetCanvas() {
 
 		frame = new JFrame() {
 			private static final long serialVersionUID = 1L;
@@ -52,15 +54,21 @@ public class Canvas {
 			}
 		};
 
-		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		frame.setUndecorated(true);
-		frame.setResizable(true);
-		frame.setSize(800, 600);
-		frame.setVisible(true);
-		frame.setAlwaysOnTop(true);
+		canvas = new Canvas();
+		canvas.setSize(800, 600);
 
-		frame.createBufferStrategy(2);
-		strategy = frame.getBufferStrategy();
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		frame.setTitle("Pixelflut");
+		// frame.setUndecorated(true);
+		frame.setResizable(true);
+		// frame.setAlwaysOnTop(true);
+
+		frame.add(canvas);
+		frame.pack();
+		frame.setVisible(true);
+
+		canvas.createBufferStrategy(2);
+		strategy = canvas.getBufferStrategy();
 		resizeBuffer(1024, 1024);
 
 		refresher = new Thread(new Runnable() {
