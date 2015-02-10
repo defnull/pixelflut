@@ -8,68 +8,41 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.Transparency;
 import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
 import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.image.BufferStrategy;
 import java.awt.image.BufferedImage;
 
 import javax.swing.JFrame;
 
-public class NetCanvas {
+public class NetCanvas implements ComponentListener, KeyListener {
 	private volatile BufferedImage drawBuffer;
 	private volatile BufferedImage overlayBuffer;
 	private volatile BufferedImage paintBuffer;
 
-	private final BufferStrategy strategy;
+	private BufferStrategy strategy;
 	private final Thread refresher;
 	private final JFrame frame;
 	private final Canvas canvas;
 
 	public NetCanvas() {
-
-		frame = new JFrame() {
-			private static final long serialVersionUID = 1L;
-
-			@Override
-			protected void processKeyEvent(KeyEvent e) {
-				super.processKeyEvent(e);
-				if (e.getKeyChar() == 'c') {
-					Graphics g = drawBuffer.getGraphics();
-					g.setColor(Color.BLACK);
-					g.fillRect(0, 0, drawBuffer.getWidth(),
-							drawBuffer.getHeight());
-					g.dispose();
-				}
-				if (e.getKeyChar() == 'q'
-						|| e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-					System.exit(0);
-				}
-			}
-
-			@Override
-			protected void processComponentEvent(ComponentEvent e) {
-				super.processComponentEvent(e);
-				if (e.getID() == ComponentEvent.COMPONENT_RESIZED) {
-					resizeBuffer(getWidth(), getHeight());
-				}
-			}
-		};
-
+		frame = new JFrame();
 		canvas = new Canvas();
-		canvas.setSize(800, 600);
+		resizeBuffer(1024, 1024);
 
+		frame.addComponentListener(this);
+		canvas.addKeyListener(this);
+
+		canvas.setSize(800, 600);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frame.setTitle("Pixelflut");
 		// frame.setUndecorated(true);
 		frame.setResizable(true);
 		// frame.setAlwaysOnTop(true);
-
 		frame.add(canvas);
 		frame.pack();
 		frame.setVisible(true);
-
-		canvas.createBufferStrategy(2);
-		strategy = canvas.getBufferStrategy();
-		resizeBuffer(1024, 1024);
 
 		refresher = new Thread(new Runnable() {
 			@Override
@@ -79,34 +52,37 @@ public class NetCanvas {
 						draw();
 						Thread.sleep(1000 / 30);
 					}
-				} catch (InterruptedException e) {
+				} catch (final InterruptedException e) {
 				}
 			}
 		});
 		refresher.start();
+
 	}
 
-	private void blit(BufferedImage source, BufferedImage target) {
-		Graphics g = target.getGraphics();
+	private void blit(final BufferedImage source, final BufferedImage target) {
+		final Graphics g = target.getGraphics();
 		g.drawImage(source, 0, 0, null);
 		g.dispose();
 	}
 
-	synchronized private void resizeBuffer(int w, int h) {
+	synchronized private void resizeBuffer(final int w, final int h) {
 		BufferedImage newBuffer;
 		int mw = w, mh = h;
 
 		if (drawBuffer != null) {
 			mw = Math.max(w, drawBuffer.getWidth());
 			mh = Math.max(h, drawBuffer.getHeight());
-			if (mw > w && mh > h)
+			if (mw > w && mh > h) {
 				return;
+			}
 		}
 
 		newBuffer = frame.getGraphicsConfiguration().createCompatibleImage(w,
 				h, Transparency.OPAQUE);
-		if (drawBuffer != null)
+		if (drawBuffer != null) {
 			blit(drawBuffer, newBuffer);
+		}
 		drawBuffer = newBuffer;
 
 		overlayBuffer = frame.getGraphicsConfiguration().createCompatibleImage(
@@ -117,7 +93,7 @@ public class NetCanvas {
 	}
 
 	private void drawOverlay() {
-		Graphics2D g = overlayBuffer.createGraphics();
+		final Graphics2D g = overlayBuffer.createGraphics();
 		g.setComposite(AlphaComposite.Clear);
 		g.fillRect(0, 0, overlayBuffer.getWidth(), overlayBuffer.getHeight());
 		g.setComposite(AlphaComposite.SrcOver);
@@ -128,34 +104,38 @@ public class NetCanvas {
 	}
 
 	synchronized public void draw() {
+		if (!frame.isVisible()) {
+			return;
+		}
 		drawOverlay();
 		// Prepare composite buffer
-		Graphics2D g = paintBuffer.createGraphics();
+		final Graphics2D g = paintBuffer.createGraphics();
 		g.drawImage(drawBuffer, 0, 0, null);
 		g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER));
 		g.drawImage(overlayBuffer, 0, 0, null);
 		g.dispose();
 
 		// Blit into double buffer
-		Graphics g2 = strategy.getDrawGraphics();
+		final Graphics g2 = strategy.getDrawGraphics();
 		g2.drawImage(paintBuffer, 0, 0, null);
 		g2.dispose();
 		strategy.show();
 	}
 
-	public void setPixel(int x, int y, int argb) {
+	public void setPixel(final int x, final int y, final int argb) {
 		// Below this values 8bit color channels are nulled.
-		BufferedImage img = drawBuffer;
+		final BufferedImage img = drawBuffer;
 
 		if (x >= 0 && x < img.getWidth() && y >= 0 && y < img.getHeight()) {
-			int alpha = (argb >>> 24) % 256;
+			final int alpha = (argb >>> 24) % 256;
 			int rgb = argb & 0xffffff;
 
-			if (alpha < 1)
+			if (alpha < 1) {
 				return;
+			}
 
 			if (alpha < 255) {
-				int target = img.getRGB(x, y);
+				final int target = img.getRGB(x, y);
 				int r, g, b;
 
 				r = ((target >>> 16) & 0xff) * (255 - alpha);
@@ -176,10 +156,11 @@ public class NetCanvas {
 		}
 	}
 
-	public int getPixel(int x, int y) {
-		BufferedImage img = drawBuffer;
-		if (x >= 0 && x < img.getWidth() && y >= 0 && y < img.getHeight())
+	public int getPixel(final int x, final int y) {
+		final BufferedImage img = drawBuffer;
+		if (x >= 0 && x < img.getWidth() && y >= 0 && y < img.getHeight()) {
 			return img.getRGB(x, y) & 0x00ffffff;
+		}
 		return 0;
 	}
 
@@ -189,6 +170,46 @@ public class NetCanvas {
 
 	public int getHeight() {
 		return drawBuffer.getHeight();
+	}
+
+	@Override
+	public void keyReleased(final KeyEvent e) {
+		if (e.getKeyChar() == 'c') {
+			final Graphics g = drawBuffer.getGraphics();
+			g.setColor(Color.BLACK);
+			g.fillRect(0, 0, drawBuffer.getWidth(), drawBuffer.getHeight());
+			g.dispose();
+		} else if (e.getKeyChar() == 'q'
+				|| e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+			System.exit(0);
+		}
+	}
+
+	@Override
+	public void keyPressed(final KeyEvent e) {
+	}
+
+	@Override
+	public void keyTyped(final KeyEvent e) {
+	}
+
+	@Override
+	public void componentResized(final ComponentEvent e) {
+		resizeBuffer(canvas.getWidth(), canvas.getHeight());
+	}
+
+	@Override
+	public void componentMoved(final ComponentEvent e) {
+	}
+
+	@Override
+	public void componentShown(final ComponentEvent e) {
+		canvas.createBufferStrategy(2);
+		strategy = canvas.getBufferStrategy();
+	}
+
+	@Override
+	public void componentHidden(final ComponentEvent e) {
 	}
 
 }

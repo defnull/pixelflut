@@ -22,25 +22,25 @@ public class PixelServer extends ChannelHandlerAdapter {
 	private final NetCanvas canvas;
 	private final int port;
 
-	public PixelServer(int port) {
+	public PixelServer(final int port) {
 		this.port = port;
-		this.canvas = new NetCanvas();
+		canvas = new NetCanvas();
 	}
 
 	public void run() throws InterruptedException {
-		EventLoopGroup bossGroup = new NioEventLoopGroup(1);
-		EventLoopGroup workerGroup = new NioEventLoopGroup();
+		final EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+		final EventLoopGroup workerGroup = new NioEventLoopGroup();
 		try {
-			ServerBootstrap b = new ServerBootstrap();
+			final ServerBootstrap b = new ServerBootstrap();
 			b.group(bossGroup, workerGroup)
 					.channel(NioServerSocketChannel.class)
 					.option(ChannelOption.SO_BACKLOG, 100)
 					.handler(new LoggingHandler(LogLevel.INFO))
 					.childHandler(new ChannelInitializer<SocketChannel>() {
 						@Override
-						public void initChannel(SocketChannel ch)
+						public void initChannel(final SocketChannel ch)
 								throws Exception {
-							ChannelPipeline p = ch.pipeline();
+							final ChannelPipeline p = ch.pipeline();
 
 							// p.addLast("logger", new LoggingHandler(
 							// LogLevel.DEBUG));
@@ -55,7 +55,7 @@ public class PixelServer extends ChannelHandlerAdapter {
 					});
 
 			// Start the server.
-			ChannelFuture f = b.bind(port).sync();
+			final ChannelFuture f = b.bind(port).sync();
 
 			// Wait until the server socket is closed.
 			f.channel().closeFuture().sync();
@@ -66,7 +66,7 @@ public class PixelServer extends ChannelHandlerAdapter {
 		}
 	}
 
-	public static void main(String[] args) throws InterruptedException {
+	public static void main(final String[] args) throws InterruptedException {
 		new PixelServer(8080).run();
 	}
 
