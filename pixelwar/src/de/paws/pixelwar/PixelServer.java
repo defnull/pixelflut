@@ -17,17 +17,26 @@ import io.netty.handler.codec.string.StringEncoder;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 
+import java.io.File;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
+
 public class PixelServer extends ChannelHandlerAdapter {
 
 	private final NetCanvas canvas;
 	private final int port;
+	private final File savefile = new File("/tmp/canvas.png");
 
-	public PixelServer(final int port) {
+	public PixelServer(final int port) throws IOException {
 		this.port = port;
 		canvas = new NetCanvas();
+		if (savefile.exists()) {
+			canvas.loadFrom(savefile);
+		}
 	}
 
-	public void run() throws InterruptedException {
+	public void run() throws InterruptedException, UnknownHostException {
 		final EventLoopGroup bossGroup = new NioEventLoopGroup(1);
 		final EventLoopGroup workerGroup = new NioEventLoopGroup();
 		try {
@@ -48,14 +57,14 @@ public class PixelServer extends ChannelHandlerAdapter {
 									128, Delimiters.lineDelimiter()));
 							p.addLast("decoder", new StringDecoder());
 							p.addLast("encoder", new StringEncoder());
-
 							// and then business logic.
 							p.addLast("handler", new PixelClientHandler(canvas));
 						}
 					});
 
 			// Start the server.
-			final ChannelFuture f = b.bind(port).sync();
+			final ChannelFuture f = b.bind(
+					new InetSocketAddress("0.0.0.0", port)).sync();
 
 			// Wait until the server socket is closed.
 			f.channel().closeFuture().sync();
@@ -63,10 +72,16 @@ public class PixelServer extends ChannelHandlerAdapter {
 			// Shut down all event loops to terminate all threads.
 			bossGroup.shutdownGracefully();
 			workerGroup.shutdownGracefully();
+			try {
+				canvas.saveAs(savefile);
+			} catch (final IOException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 
-	public static void main(final String[] args) throws InterruptedException {
+	public static void main(final String[] args) throws InterruptedException,
+			IOException {
 		new PixelServer(8080).run();
 	}
 

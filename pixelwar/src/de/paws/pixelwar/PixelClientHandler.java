@@ -2,7 +2,6 @@ package de.paws.pixelwar;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.handler.traffic.TrafficCounter;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -24,14 +23,10 @@ public class PixelClientHandler extends SimpleChannelInboundHandler<String> {
 	private final Set<String> subscriptions = new HashSet<>();
 	private final Map<String, CommandHandler> handlers = new HashMap<>();
 
-	private long connectedTime;
-	private long pixelCount = 0;
-	private long missedMessages = 0;
+	private Label label;
 
 	public PixelClientHandler(final NetCanvas canvas) {
 		this.canvas = canvas;
-		final TrafficCounter tc = new TrafficCounter(null, null, null,
-				connectedTime);
 	}
 
 	public void installHandler(final String command,
@@ -42,7 +37,9 @@ public class PixelClientHandler extends SimpleChannelInboundHandler<String> {
 	@Override
 	public void channelActive(final ChannelHandlerContext ctx) throws Exception {
 		super.channelActive(ctx);
-		connectedTime = System.currentTimeMillis();
+		label = new Label();
+		label.setText(ctx.channel().remoteAddress().toString());
+		canvas.addDrawable(label);
 		channelContext = ctx;
 		synchronized (clients) {
 			clients.add(this);
@@ -53,17 +50,17 @@ public class PixelClientHandler extends SimpleChannelInboundHandler<String> {
 	public void channelInactive(final ChannelHandlerContext ctx)
 			throws Exception {
 		super.channelActive(ctx);
-		final long passed = System.currentTimeMillis() - connectedTime;
 		synchronized (clients) {
 			clients.remove(this);
 		}
+		label.setAlive(false);
 	}
 
 	public void writeIfPossible(final String str) {
 		if (channelContext.channel().isWritable()) {
 			channelContext.write(str + "\n");
+			channelContext.flush();
 		} else {
-			missedMessages++;
 		}
 	}
 
@@ -145,7 +142,7 @@ public class PixelClientHandler extends SimpleChannelInboundHandler<String> {
 	}
 
 	private void handle_PUB(final ChannelHandlerContext ctx, final String data) {
-		final String[] parts = data.split(" ", 1);
+		final String[] parts = data.split(" ", 2);
 		if (parts.length != 2) {
 			error("Usage: PUB <channel> <message>");
 			return;
@@ -155,9 +152,7 @@ public class PixelClientHandler extends SimpleChannelInboundHandler<String> {
 		final String message = "PUB " + channel + " " + parts[1].trim();
 
 		for (final PixelClientHandler c : clients) {
-			if (c != this) {
-				c.writeChannel(channel, message);
-			}
+			c.writeChannel(channel, message);
 		}
 	}
 
@@ -172,7 +167,6 @@ public class PixelClientHandler extends SimpleChannelInboundHandler<String> {
 	private void handle_PX(final ChannelHandlerContext ctx, final String data) {
 		final String[] args = data.split(" ");
 		try {
-			pixelCount++;
 			if (args.length == 2) {
 				final int x = Integer.parseInt(args[0]);
 				final int y = Integer.parseInt(args[1]);
@@ -185,6 +179,7 @@ public class PixelClientHandler extends SimpleChannelInboundHandler<String> {
 				if (args[2].length() == 6) {
 					color += 0xff000000;
 				}
+				label.setPos(x, y);
 				canvas.setPixel(x, y, color);
 			} else {
 				error("Usage: PX x y [rrggbb[aa]]");
