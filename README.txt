@@ -14,6 +14,7 @@ Gevent and pygame based python implementation. easier to hack with, but a bit sl
 
     sudo aptitude install python-gevent python-pygame
     cd pixelflut
+    mkdir save
     python pixelflut.py brain.py
 
 Pixelwar (java)
