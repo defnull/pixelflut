@@ -12,8 +12,9 @@ Pixelflut (python)
 
 Gevent and pygame based python implementation. easier to hack with, but a bit slow. Not recommended for more than 20 players.
 
-    sudo aptitude install python-gevent python-pygame
+    sudo aptitude install python-gevent python-pygame python-cairo
     cd pixelflut
+    mkdir save
     python pixelflut.py brain.py
 
 Pixelwar (java)
