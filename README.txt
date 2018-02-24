@@ -25,7 +25,7 @@ Netty based java7 implementation. Very fast but not scriptable (yet).
     sudo aptitude install maven2 openjdk-7-jdk
     cd pixelwar
     mvn package
-    java -jar package/pixelwar*-jar-with-dependencies.jar
+    java -jar target/pixelwar*-jar-with-dependencies.jar
 
 Links
 -----
