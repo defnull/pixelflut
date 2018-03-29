@@ -46,18 +46,7 @@ static CanvasLayer* canvas_layer_alloc(int size, int alpha) {
 	layer->format = alpha ? GL_RGBA : GL_RGB;
 	layer->mem = size * size * (alpha ? 4 : 3);
 	layer->data = malloc(sizeof(GLubyte) * layer->mem);
-
-	GLubyte* pt;
-	for(int x=0; x<size; x++) {
-		for(int y=0; y<size; y++) {
-			pt = layer->data + (((y * size) + x) * (alpha ? 4 : 3));
-			pt[0] = x%255;
-			pt[1] = y%255;
-			if(alpha)
-				pt[3] = 0;
-		}
-	}
-
+	memset(layer->data, 0, layer->mem);
 	return layer;
 }
 
