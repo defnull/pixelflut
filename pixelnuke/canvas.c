@@ -355,7 +355,6 @@ void canvas_set_px(unsigned int x, unsigned int y, uint32_t rgba) {
 		r = (a * r + na * (ptr[0])) / 0xff;
 		g = (a * g + na * (ptr[1])) / 0xff;
 		b = (a * b + na * (ptr[2])) / 0xff;
-		return;
 	}
 	ptr[0] = r;
 	ptr[1] = g;
