@@ -1,12 +1,15 @@
 .PHONY: default all clean
 
 CC = gcc
-CFLAGS = -Wall -pthread -g
+CFLAGS = -Wall -pthread -O2
 LIBS = -levent -levent_pthreads -lrt -lGL -lGLEW -lglfw
 TARGET = pixelnuke
 
 default: $(TARGET)
 all: default
+
+debug: CFLAGS += -DDEBUG -g
+debug: default
 
 OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c))
 HEADERS = $(wildcard *.h)
