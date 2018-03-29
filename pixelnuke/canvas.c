@@ -22,6 +22,8 @@ typedef struct CanvasLayer {
 
 static int canvas_display = -1;
 static unsigned int canvas_tex_size = 1024;
+static int canvas_width=0;
+static int canvas_height=0;
 static GLFWwindow* canvas_win;
 static CanvasLayer *canvas_base;
 static CanvasLayer *canvas_overlay;
@@ -30,6 +32,14 @@ pthread_t canvas_thread;
 
 void glfw_error_callback(int error, const char* description) {
 	printf("GLFW Error: %d %s", error, description);
+}
+
+static inline int min(int a, int b) {
+	return a < b ? a : b;
+}
+
+static inline int max(int a, int b) {
+	return a > b ? a : b;
 }
 
 // User callbacks
@@ -95,6 +105,9 @@ static void canvas_on_key(GLFWwindow* window, int key, int scancode, int action,
 }
 
 static void canvas_on_resize(GLFWwindow* window, int w, int h) {
+	canvas_width = w;
+	canvas_height = h;
+
 	if(canvas_on_resize_cb)
 		(*canvas_on_resize_cb)();
 }
@@ -143,6 +156,9 @@ static void canvas_window_setup() {
 	glfwSwapInterval(1);
 	glfwSetKeyCallback(canvas_win, &canvas_on_key);
 	glfwSetFramebufferSizeCallback(canvas_win, &canvas_on_resize);
+
+	glfwGetFramebufferSize(canvas_win, &canvas_width, &canvas_height);
+	canvas_on_resize(canvas_win, canvas_width, canvas_height);
 
 	canvas_do_layout = 0;
 }
@@ -237,19 +253,18 @@ static void* canvas_render_loop(void * arg) {
 		if (glfwWindowShouldClose(canvas_win))
 			break;
 
-		int w, h;
-		glfwGetFramebufferSize(canvas_win, &w, &h);
+		glfwGetFramebufferSize(canvas_win, &canvas_width, &canvas_height);
 		glMatrixMode(GL_PROJECTION);
 		glLoadIdentity();
-		glOrtho(0, w, h, 0, -1, 1);
-		glViewport(0, 0, (GLsizei) w, (GLsizei) h);
+		glOrtho(0, canvas_width, canvas_height, 0, -1, 1);
+		glViewport(0, 0, (GLsizei) canvas_width, (GLsizei) canvas_height);
 		glClearColor(0, 0, 0, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
 		glPushMatrix();
 
 		GLuint texSize = canvas_base->size;
-		if(w > texSize || h > texSize) {
-		    float scale = ((float) (w>h?w:h)) / (float) texSize;
+		if(canvas_width > texSize || canvas_height > texSize) {
+		    float scale = ((float) max(canvas_width, canvas_height)) / (float) texSize;
 		    glScalef(scale, scale, 1);
 		}
 
@@ -372,8 +387,14 @@ void canvas_get_px(unsigned int x, unsigned int y, uint32_t *rgba) {
 }
 
 void canvas_get_size(unsigned int *w, unsigned int *h) {
-	// TODO: Clip on window size
-	*w = canvas_base->size;
-	*h = canvas_base->size;
+	int texSize = canvas_base->size;
+	if(canvas_width > texSize || canvas_height > texSize) {
+	    float scale = ((float) max(canvas_width, canvas_height)) / texSize;
+		*w = min(texSize, canvas_width/scale);
+		*h = min(texSize, canvas_height/scale);
+	} else {
+		*w = canvas_width;
+		*h = canvas_height;
+	}
 }
 

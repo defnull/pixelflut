@@ -129,9 +129,11 @@ void px_on_window_close() {
 }
 
 int main(int argc, char **argv) {
-	canvas_start(1024, &px_on_window_close);
 	canvas_setcb_key(&px_on_key);
 	canvas_setcb_resize(&px_on_resize);
+
+	canvas_start(1024, &px_on_window_close);
+
 	net_start(1337, &px_on_connect, &px_on_read, &px_on_close);
 	return 0;
 }
