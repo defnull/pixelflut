@@ -15,6 +15,7 @@ void canvas_close();
 void canvas_fullscreen(int display);
 int canvas_get_display();
 
+void canvas_fill(uint32_t rgba);
 void canvas_set_px(unsigned int x, unsigned int y, uint32_t rgba);
 void canvas_get_px(unsigned int x, unsigned int y, uint32_t *rgba);
 

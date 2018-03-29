@@ -114,6 +114,8 @@ void px_on_key(int key, int scancode, int mods) {
 			canvas_fullscreen(-1);
 	} else if (key == 301) { // F12
 		canvas_fullscreen(canvas_get_display() + 1);
+	} else if (key == 67) { // c
+		canvas_fill(0x00000088);
 	} else if (key == 81 || key == 256) { // q or ESC
 		canvas_close();
 	}

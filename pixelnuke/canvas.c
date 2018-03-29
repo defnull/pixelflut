@@ -376,6 +376,14 @@ void canvas_set_px(unsigned int x, unsigned int y, uint32_t rgba) {
 	ptr[2] = b;
 }
 
+void canvas_fill(uint32_t rgba) {
+	CanvasLayer * layer = canvas_base;
+	for(int x=0; x<layer->size; x++)
+		for(int y=0; y<layer->size; y++)
+			canvas_set_px(x, y, rgba);
+}
+
+
 void canvas_get_px(unsigned int x, unsigned int y, uint32_t *rgba) {
 	CanvasLayer * layer = canvas_base;
 	GLubyte* ptr = canvas_offset(layer, x, y);
