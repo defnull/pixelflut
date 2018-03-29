@@ -17,7 +17,13 @@
 
 #include "net.h"
 
-#define MAX_LINE 128
+// Lines longer than this are considered an error.
+#define NET_MAX_LINE 1024
+
+// The server buffers up to NET_READ_BUFFER bytes per client connection.
+// Lower values allow lots of clients to draw at the same time, each with a fair share.
+// Higher values increase throughput but fast clients might be able to draw large batches at once.
+#define NET_MAX_BUFFER 10240
 
 typedef struct NetClient {
 	int sock_fd;
@@ -49,13 +55,13 @@ static void netev_on_read(struct bufferevent *bev, void *ctx) {
 
 	input = bufferevent_get_input(bev);
 
-	if ((line = evbuffer_readln(input, &n, EVBUFFER_EOL_LF))) {
-		if(netcb_on_read)
-			(*netcb_on_read)(client, line);
+	// Change while->if for less throughput but more fair pixel distribution across client connections.
+	while ((line = evbuffer_readln(input, &n, EVBUFFER_EOL_LF))) {
+		(*netcb_on_read)(client, line);
 		free(line);
 	}
 
-	if (evbuffer_get_length(input) >= MAX_LINE) {
+	if (evbuffer_get_length(input) >= NET_MAX_LINE) {
 		net_err(client, "Line to long");
 	}
 }
@@ -112,7 +118,7 @@ static void on_accept(evutil_socket_t listener, short event, void *arg) {
 
 		evutil_make_socket_nonblocking(fd);
 		bufferevent_setcb(client->buf_ev, netev_on_read, netev_on_write, netev_on_error, client);
-		bufferevent_setwatermark(client->buf_ev, EV_READ, 0, MAX_LINE);
+		bufferevent_setwatermark(client->buf_ev, EV_READ, 0, NET_MAX_BUFFER);
 
 		if(netcb_on_connect)
 			(*netcb_on_connect)(client);
@@ -142,13 +148,14 @@ void net_start(int port, net_on_connect on_connect, net_on_read on_read, net_on_
 	if (!base)
 		err(1, "Failed to create event_base");
 
-	evthread_make_base_notifiable(base);
+	//evthread_make_base_notifiable(base);
 
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = 0;
 	sin.sin_port = htons(1337);
 	listener = socket(AF_INET, SOCK_STREAM, 0);
 	evutil_make_socket_nonblocking(listener);
+	evutil_make_listen_socket_reuseable(listener);
 
 	if (bind(listener, (struct sockaddr*) &sin, sizeof(sin)) < 0) {
 		err(1, "bind failed");
@@ -177,8 +184,10 @@ void net_send(NetClient *client, const char * msg) {
 }
 
 void net_close(NetClient *client) {
-	client->state = NET_CSTATE_CLOSING;
-	bufferevent_disable(client->buf_ev, EV_READ);
+	if(client->state == NET_CSTATE_OPEN) {
+		client->state = NET_CSTATE_CLOSING;
+		bufferevent_disable(client->buf_ev, EV_READ);
+	}
 }
 
 void net_err(NetClient *client, const char * msg) {
