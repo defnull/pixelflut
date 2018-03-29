@@ -1,6 +1,8 @@
 #ifndef CANVAS_H_
 #define CANVAS_H_
 
+#include <stdint.h>
+
 // Open the canvas window and start the gui loop (in a separate thread)
 void canvas_start(unsigned int texSize, void (*on_close)());
 
@@ -13,8 +15,8 @@ void canvas_close();
 void canvas_fullscreen(int display);
 int canvas_get_display();
 
-void canvas_set_px(unsigned int x, unsigned int y, unsigned int rgba);
-void canvas_get_px(unsigned int x, unsigned int y, unsigned int *rgba);
+void canvas_set_px(unsigned int x, unsigned int y, uint32_t rgba);
+void canvas_get_px(unsigned int x, unsigned int y, uint32_t *rgba);
 
 // get the current visible canvas size in pixel.
 // The actual window might be bigger if scaling is enabled.

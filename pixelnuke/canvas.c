@@ -20,12 +20,17 @@ typedef struct CanvasLayer {
 
 // Global state
 
-static int canvas_width, canvas_height;
-
 static int canvas_display = -1;
+static unsigned int canvas_tex_size = 1024;
 static GLFWwindow* canvas_win;
 static CanvasLayer *canvas_base;
 static CanvasLayer *canvas_overlay;
+
+pthread_t canvas_thread;
+
+void glfw_error_callback(int error, const char* description) {
+	printf("GLFW Error: %d %s", error, description);
+}
 
 // User callbacks
 
@@ -42,6 +47,22 @@ static CanvasLayer* canvas_layer_alloc(int size, int alpha) {
 	layer->mem = size * size * (alpha ? 4 : 3);
 	layer->data = malloc(sizeof(GLubyte) * layer->mem);
 
+	GLubyte* pt;
+	for(int x=0; x<size; x++) {
+		for(int y=0; y<size; y++) {
+			pt = layer->data + (((y * size) + x) * (alpha ? 4 : 3));
+			pt[0] = x%255;
+			pt[1] = y%255;
+			if(alpha)
+				pt[3] = 0;
+		}
+	}
+
+	return layer;
+}
+
+static void canvas_layer_bind(CanvasLayer* layer) {
+
 	// Create texture object
 	glGenTextures(1, &(layer->tex));
 	glBindTexture( GL_TEXTURE_2D, layer->tex);
@@ -57,18 +78,21 @@ static CanvasLayer* canvas_layer_alloc(int size, int alpha) {
 	glBindBuffer( GL_PIXEL_UNPACK_BUFFER, layer->pbo2);
 	glBufferData( GL_PIXEL_UNPACK_BUFFER, layer->mem, NULL, GL_STREAM_DRAW);
 	glBindBuffer( GL_PIXEL_UNPACK_BUFFER, 0);
-
-	return layer;
 }
 
-static void canvas_layer_free(CanvasLayer * canvas) {
-	if (canvas->tex) {
-		glDeleteTextures(1, &(canvas->tex));
-		glDeleteBuffers(1, &(canvas->pbo1));
-		glDeleteBuffers(1, &(canvas->pbo2));
+
+static void canvas_layer_unbind(CanvasLayer * layer) {
+	if (layer->tex) {
+		glDeleteTextures(1, &(layer->tex));
+		glDeleteBuffers(1, &(layer->pbo1));
+		glDeleteBuffers(1, &(layer->pbo2));
 	}
-	free(canvas->data);
-	free(canvas);
+}
+
+static void canvas_layer_free(CanvasLayer * layer) {
+	canvas_layer_unbind(layer);
+	free(layer->data);
+	free(layer);
 }
 
 static void canvas_on_resize(GLFWwindow* window, int w, int h);
@@ -91,7 +115,10 @@ static void canvas_on_resize(GLFWwindow* window, int w, int h) {
 }
 
 static void canvas_window_setup() {
-	GLFWwindow* old_win = canvas_win;
+
+	if(canvas_win) {
+		glfwDestroyWindow(canvas_win);
+	}
 
 	glfwWindowHint(GLFW_DOUBLEBUFFER, 1);
 	if (canvas_display >= 0) {
@@ -104,10 +131,9 @@ static void canvas_window_setup() {
 		glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
 		glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
 		glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
-		canvas_win = glfwCreateWindow(mode->width, mode->height, "Pixelflut",
-				monitor, old_win);
+		canvas_win = glfwCreateWindow(mode->width, mode->height, "Pixelflut", monitor, NULL);
 	} else {
-		canvas_win = glfwCreateWindow(800, 600, "Pixelflut", NULL, old_win);
+		canvas_win = glfwCreateWindow(800, 600, "Pixelflut", NULL, NULL);
 	}
 
 	if (!canvas_win) {
@@ -115,21 +141,29 @@ static void canvas_window_setup() {
 		return;
 	}
 
-	//glfwSetWindowUserPointer(canvas_win, (void*) this);
 	glfwMakeContextCurrent(canvas_win);
+
+	// TODO: Move GL stuff to better place
+	//glShadeModel(GL_FLAT);            // shading mathod: GL_SMOOTH or GL_FLAT
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 4); // 4-byte pixel alignment
+	//glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+	//glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
+	//glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_LIGHTING);
+	glDisable(GL_CULL_FACE);
+	glEnable(GL_TEXTURE_2D);
+
+	//glfwSetWindowUserPointer(canvas_win, (void*) this);
 	glfwSwapInterval(1);
 	glfwSetKeyCallback(canvas_win, &canvas_on_key);
 	glfwSetFramebufferSizeCallback(canvas_win, &canvas_on_resize);
-
-	if (old_win) {
-		glfwDestroyWindow(old_win);
-	}
 
 	canvas_do_layout = 0;
 }
 
 static void canvas_draw_layer(CanvasLayer * layer) {
-	if (!layer)
+	if (!layer || !layer->data)
 		return;
 
 	GLuint pboNext = layer->pbo1;
@@ -179,35 +213,64 @@ static void canvas_draw_layer(CanvasLayer * layer) {
 }
 
 static void* canvas_render_loop(void * arg) {
-	glfwMakeContextCurrent(canvas_win);
+
+	glfwSetErrorCallback(glfw_error_callback);
+	if (!glfwInit()) {
+		puts("GLFW initialization failed");
+		if(canvas_on_close_cb)
+			(*canvas_on_close_cb)();
+		glfwTerminate();
+		return NULL;
+	}
+
+	canvas_window_setup();
+
+	int err = glewInit();
+	if (err != GLEW_OK) {
+		puts("GLEW initialization failed");
+		printf("Error: %s\n", glewGetErrorString(err));
+		if(canvas_on_close_cb)
+			(*canvas_on_close_cb)();
+		return NULL;
+	}
+
+	canvas_layer_bind(canvas_base);
+	canvas_layer_bind(canvas_overlay);
 
 	double last_frame = glfwGetTime();
 
 	while ("pixels are coming") {
+
+		if (canvas_do_layout) {
+			canvas_layer_unbind(canvas_base);
+			canvas_layer_unbind(canvas_overlay);
+			canvas_window_setup();
+			canvas_layer_bind(canvas_base);
+			canvas_layer_bind(canvas_overlay);
+		}
+
 		if (glfwWindowShouldClose(canvas_win))
 			break;
-
-		if (canvas_do_layout)
-			canvas_window_setup();
 
 		int w, h;
 		glfwGetFramebufferSize(canvas_win, &w, &h);
 		glMatrixMode(GL_PROJECTION);
 		glLoadIdentity();
-		glOrtho(0, canvas_width, canvas_height, 0, -1, 1);
-		glViewport(0, 0, (GLsizei) canvas_width, (GLsizei) canvas_height);
+		glOrtho(0, w, h, 0, -1, 1);
+		glViewport(0, 0, (GLsizei) w, (GLsizei) h);
 		glClearColor(0, 0, 0, 1);
 		glClear(GL_COLOR_BUFFER_BIT);
 		glPushMatrix();
 
-		//int ts = layer->texSize;
-		//if(width > ts || height > ts) {
-		//    float scale = std::max(width, height) / (float) ts;
-		//    glScalef(scale, scale, 1);
-		//}
+		GLuint texSize = canvas_base->size;
+		if(w > texSize || h > texSize) {
+		    float scale = ((float) (w>h?w:h)) / (float) texSize;
+		    glScalef(scale, scale, 1);
+		}
 
 		canvas_draw_layer(canvas_base);
-		canvas_draw_layer(canvas_overlay);
+		// TODO: Overlay is not used yet
+		//canvas_draw_layer(canvas_overlay);
 
 		glPopMatrix();
 		glfwPollEvents();
@@ -217,7 +280,6 @@ static void* canvas_render_loop(void * arg) {
 		double dt = now - last_frame;
 		last_frame = now;
 		double sleep = 1.0 / 30 - dt;
-		printf("fps: %f\n", 1.0/dt);
 		if (sleep > 0) {
 			usleep(sleep * 1000000);
 		}
@@ -227,51 +289,23 @@ static void* canvas_render_loop(void * arg) {
 		(*canvas_on_close_cb)();
 
 	glfwTerminate();
+	canvas_layer_free(canvas_base);
+	canvas_layer_free(canvas_overlay);
 
 	return NULL;
 }
 
 // Public functions
 
-pthread_t canvas_thread;
 
-void glfw_error_callback(int error, const char* description) {
-	printf("GLFW Error: %d %s", error, description);
-}
 
 void canvas_start(unsigned int texSize, void (*on_close)()) {
 
 	canvas_on_close_cb = on_close;
+	canvas_tex_size = texSize;
+	canvas_base = canvas_layer_alloc(canvas_tex_size, 0);
+	canvas_overlay = canvas_layer_alloc(canvas_tex_size, 1);
 
-	glfwSetErrorCallback(glfw_error_callback);
-	if (!glfwInit()) {
-		puts("GLFW initialization failed");
-		exit(1);
-	}
-
-	canvas_window_setup();
-
-	int err = glewInit();
-	if (err != GLEW_OK) {
-		puts("GLEW initialization failed");
-		printf("Error: %s\n", glewGetErrorString(err));
-		exit(1);
-	}
-
-	//glShadeModel(GL_FLAT);            // shading mathod: GL_SMOOTH or GL_FLAT
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 4); // 4-byte pixel alignment
-	//glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
-	//glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-	//glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
-	glDisable(GL_DEPTH_TEST);
-	glDisable(GL_LIGHTING);
-	glDisable(GL_CULL_FACE);
-	glEnable(GL_TEXTURE_2D);
-
-	canvas_base = canvas_layer_alloc(texSize, 0);
-	canvas_overlay = canvas_layer_alloc(texSize, 1);
-
-	glfwMakeContextCurrent(NULL); // Pass context to thread
 	if (pthread_create(&canvas_thread, NULL, canvas_render_loop, NULL)) {
 		puts("Failed to start render thread");
 		exit(1);
@@ -302,13 +336,13 @@ int canvas_get_display() {
 // Return a pointer to the GLubyte for a given pixel, or NULL for out of bound coordinates.
 static inline GLubyte* canvas_offset(CanvasLayer * layer, unsigned int x,
 		unsigned int y) {
-	if (x < 0 || y < 0 || x >= layer->size || y >= layer->size)
+	if (x < 0 || y < 0 || x >= layer->size || y >= layer->size || layer->data == NULL)
 		return NULL;
 	return layer->data
 			+ ((y * layer->size) + x) * (layer->format == GL_RGBA ? 4 : 3);
 }
 
-void canvas_set_px(unsigned int x, unsigned int y, unsigned int rgba) {
+void canvas_set_px(unsigned int x, unsigned int y, uint32_t rgba) {
 	CanvasLayer * layer = canvas_base;
 	GLubyte* ptr = canvas_offset(layer, x, y);
 
@@ -343,7 +377,7 @@ void canvas_set_px(unsigned int x, unsigned int y, unsigned int rgba) {
 	ptr[2] = b;
 }
 
-void canvas_get_px(unsigned int x, unsigned int y, unsigned int *rgba) {
+void canvas_get_px(unsigned int x, unsigned int y, uint32_t *rgba) {
 	CanvasLayer * layer = canvas_base;
 	GLubyte* ptr = canvas_offset(layer, x, y);
 	if (ptr == NULL) {
