@@ -20,7 +20,7 @@ Pixelflut defines four main commands that are always supported to get you starte
 
 You can send multiple commands over the same TCP socket by terminating each command with a single newline character (`\n`).
 
-Example: `echo "PX 23 42 ff8000" | netcat pixelflut.xample.com 1337`
+Example: `echo "PX 23 42 ff8000" | netcat pixelflut.example.com 1337`
 
 Server Implementations
 ----------------------
@@ -31,19 +31,30 @@ This repository contains multiple implementations of the pixelflut protocol. Pul
 
 Server written in Python, based on gevent and pygame. Easy to hack with, but a bit slow.
 
-    sudo apt-get install python-gevent python-pygame python-cairo
     cd pixelflut
+    sudo apt-get install python-gevent python-pygame python-cairo
     mkdir save
     python pixelflut.py brain.py
 
 #### `/pixelwar` (java server)
 
-Server wirtten in Java8, based on netty and awt. Optimized for speed and large player groups, fast networks or high resolution projectors.
+Server written in Java8, based on netty and awt. Optimized for speed and large player groups, fast networks or high resolution projectors.
 
-    sudo apt-get install maven openjdk-8-jdk
     cd pixelwar
+    sudo apt-get install maven openjdk-8-jdk
     mvn package
     java -jar target/pixelwar*-jar-with-dependencies.jar
+
+#### `/pixelnuke` (C server)
+
+Server written in C, based on libevent2, OpenGL, GLFW and pthreads. It won't get any faster than this.
+
+    cd pixelnuke
+    sudo apt-get install build-essential libevent-dev libglew-dev libglfw3-dev
+    make
+    ./pixelnuke
+
+Pull requests that improve performance or portability (e.g. Windows or RasPI) are always welcomed.
 
 Links and Videos
 ----------------
