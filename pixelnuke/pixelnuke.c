@@ -5,8 +5,8 @@
 #include <errno.h>
 #include <stdio.h> //sprintf
 
-int px_width = 1024;
-int px_height = 1024;
+unsigned int px_width = 1024;
+unsigned int px_height = 1024;
 
 // Helper functions
 
@@ -103,6 +103,9 @@ void px_on_close(NetClient *client, int error) {
 }
 
 void px_on_key(int key, int scancode, int mods) {
+
+	printf("Key pressed: key:%d scancode:%d mods:%d\n", key, scancode, mods);
+
 	if (key == 300) { // F11
 		int display = canvas_get_display();
 		if (display < 0)

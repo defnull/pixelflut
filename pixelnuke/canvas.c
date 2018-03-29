@@ -36,7 +36,7 @@ void glfw_error_callback(int error, const char* description) {
 
 void (*canvas_on_close_cb)();
 void (*canvas_on_resize_cb)();
-void (*canvas_on_key_cb)();
+void (*canvas_on_key_cb)(int, int, int);
 
 static int canvas_do_layout = 0;
 
@@ -90,12 +90,8 @@ static void canvas_on_key(GLFWwindow* window, int key, int scancode, int action,
 
 static void canvas_on_key(GLFWwindow* window, int key, int scancode, int action,
 		int mods) {
-	printf("KEY: %u %u %u %u\n", key, scancode, action, mods);
-	if (action != GLFW_PRESS) {
-		return;
-	}
-	if (canvas_on_key_cb)
-		(*canvas_on_key_cb)(key, scancode, action, mods);
+	if (action == GLFW_PRESS && canvas_on_key_cb)
+		(*canvas_on_key_cb)(key, scancode, mods);
 }
 
 static void canvas_on_resize(GLFWwindow* window, int w, int h) {
