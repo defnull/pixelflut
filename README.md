@@ -27,7 +27,7 @@ Server Implementations
 
 This repository contains multiple implementations of the pixelflut protocol. Pull requests for additional implementations or improvements are always welcomed.
 
-#### `/pixelflut` (python server)
+### `/pixelflut` (python server)
 
 Server written in Python, based on gevent and pygame. Easy to hack with, but a bit slow.
 
@@ -53,6 +53,14 @@ Server written in C, based on libevent2, OpenGL, GLFW and pthreads. It won't get
     sudo apt-get install build-essential libevent-dev libglew-dev libglfw3-dev
     make
     ./pixelnuke
+
+Keyboard controls:
+
+* `F11`: Toggle between fullscreen and windowed mode
+* `F12`: Switch between multiple monitors in fullscreen mode
+* `c`: Clear the screen (50% black, hit multiple times)
+* `q` or `ESC`: Quit
+
 
 Pull requests that improve performance or portability (e.g. Windows or RasPI) are always welcomed.
 
