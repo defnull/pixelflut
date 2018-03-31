@@ -56,15 +56,21 @@ Server written in C, based on libevent2, OpenGL, GLFW and pthreads. It won't get
 
 Pull requests that improve performance or portability (e.g. Windows or RasPI) are always welcomed.
 
+Even more implementations
+-------------------------
+
+A fast GPU accelerated pixelflut server in Rust.  
+https://github.com/timvisee/pixelpwnr-server
+
 Links and Videos
 ----------------
 
-Pixelflut at EasterHegg 2014 in Stuttgart, Germany
+Pixelflut at EasterHegg 2014 in Stuttgart, Germany  
 http://vimeo.com/92827556
 
-Pixelflut Bar (SHA2017)
-https://wiki.sha2017.org/w/Pixelflut_bar
+Pixelflut Bar (SHA2017)  
+https://wiki.sha2017.org/w/Pixelflut_bar  
 https://www.youtube.com/watch?v=1Jt-X437MKM
 
-Pixelflut GPN17 Badge
+Pixelflut GPN17 Badge  
 https://www.youtube.com/watch?v=JGg4zqqumvs
