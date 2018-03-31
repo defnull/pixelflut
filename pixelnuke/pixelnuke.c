@@ -7,6 +7,8 @@
 
 unsigned int px_width = 1024;
 unsigned int px_height = 1024;
+unsigned int px_pixelcount = 0;
+unsigned int px_clientcount = 0;
 
 // Helper functions
 
@@ -21,8 +23,14 @@ static int util_str_starts_with(const char* prefix, const char* str) {
 
 // server callbacks
 void px_on_connect(NetClient *client) {
-
+	px_clientcount++;
 }
+
+
+void px_on_close(NetClient *client, int error) {
+	px_clientcount--;
+}
+
 
 void px_on_read(NetClient *client, char *line) {
 	if (util_str_starts_with("PX ", line)) {
@@ -76,12 +84,19 @@ void px_on_read(NetClient *client, char *line) {
 			return;
 		}
 
+		px_pixelcount++;
 		canvas_set_px(x, y, c);
 
 	} else if (util_str_starts_with("SIZE", line)) {
 
 		char str[64];
-		sprintf(str, "SIZE %d %d", px_width, px_height);
+		snprintf(str, 64, "SIZE %d %d", px_width, px_height);
+		net_send(client, str);
+
+	} else if (util_str_starts_with("STATS", line)) {
+
+		char str[128];
+		snprintf(str, 128, "STATS px:%u conn:%u", px_pixelcount, px_clientcount);
 		net_send(client, str);
 
 	} else if (util_str_starts_with("HELP", line)) {
@@ -90,7 +105,8 @@ void px_on_read(NetClient *client, char *line) {
 "\
 PX x y: Get color at position (x,y)\n\
 PX x y rrggbb(aa): Draw a pixel (with optional alpha channel)\n\
-SIZE: Get canvas size");
+SIZE: Get canvas size\n\
+STATS: Return statistics");
 
 	} else {
 
@@ -99,8 +115,6 @@ SIZE: Get canvas size");
 	}
 }
 
-void px_on_close(NetClient *client, int error) {
-}
 
 void px_on_key(int key, int scancode, int mods) {
 
