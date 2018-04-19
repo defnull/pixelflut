@@ -177,7 +177,8 @@ public class PixelClientHandler extends SimpleChannelInboundHandler<String> {
 				final int y = Integer.parseInt(args[1]);
 				int color = (int) Long.parseLong(args[2], 16);
 				if (args[2].length() == 6) {
-					color += 0xff000000;
+					color = color << 8;
+					color += 0x000000ff;
 				}
 				label.setPos(x, y);
 				canvas.setPixel(x, y, color);

@@ -151,8 +151,8 @@ public class NetCanvas implements ComponentListener, KeyListener,
 		final BufferedImage img = pxBuffer;
 
 		if (x >= 0 && x < img.getWidth() && y >= 0 && y < img.getHeight()) {
-			final int alpha = (argb >>> 24) % 256;
-			int rgb = argb & 0xffffff;
+			final int alpha = argb & 0xff;
+			int rgb = (argb & 0xffffff00) >>> 8;
 
 			if (alpha < 1) {
 				return;
@@ -166,9 +166,9 @@ public class NetCanvas implements ComponentListener, KeyListener,
 				g = ((target >>> 8) & 0xff) * (255 - alpha);
 				b = ((target >>> 0) & 0xff) * (255 - alpha);
 
-				r += ((argb >>> 16) & 0xff) * alpha;
-				g += ((argb >>> 8) & 0xff) * alpha;
-				b += ((argb >>> 0) & 0xff) * alpha;
+				r += ((rgb >>> 16) & 0xff) * alpha;
+				g += ((rgb >>> 8) & 0xff) * alpha;
+				b += ((rgb >>> 0) & 0xff) * alpha;
 
 				rgb = 0xff << 24;
 				rgb += (r / 255) << 16;
