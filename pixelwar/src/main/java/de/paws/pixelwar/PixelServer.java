@@ -82,7 +82,11 @@ public class PixelServer extends ChannelHandlerAdapter {
 
 	public static void main(final String[] args) throws InterruptedException,
 			IOException {
-		new PixelServer(8080).run();
+		int port = 8080;
+		if(args.length == 1) {
+			port = Integer.parseInt(args[0]);
+		}
+		System.out.println("Starting server on port " + port);
+		new PixelServer(port).run();
 	}
-
 }
