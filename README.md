@@ -52,6 +52,11 @@ Server written in Java8, based on netty and awt. Optimized for speed and large p
     sudo apt-get install maven openjdk-8-jdk
     mvn package
     java -jar target/pixelwar*-jar-with-dependencies.jar
+    
+or, if you have docker installed but don't want to install maven:
+
+    docker run -it --rm --user "`id -u`:`id -g`" --volume "`pwd`:/build" --workdir /build maven:3-jdk-8-alpine mvn -Duser.home=/build clean package
+    java -jar target/pixelwar*-jar-with-dependencies.jar
 
 #### `/pixelnuke` (C server)
 
