@@ -1,6 +1,4 @@
-FROM ubuntu:18.04
-
-RUN apt-get update && apt-get install -y maven openjdk-8-jdk
+FROM maven:3-jdk-8-alpine
 
 WORKDIR /pixelwar
 COPY . .
