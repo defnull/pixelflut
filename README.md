@@ -58,6 +58,12 @@ or, if you have docker installed but don't want to install maven:
     docker run -it --rm --user "`id -u`:`id -g`" --volume "`pwd`:/build" --workdir /build maven:3-jdk-8-alpine mvn -Duser.home=/build clean package
     java -jar target/pixelwar*-jar-with-dependencies.jar
 
+Alternative (with docker installed):
+
+    cd pixelwar
+    ./docker-build.sh
+    java -jar target/pixelwar*-jar-with-dependencies.jar
+
 #### `/pixelnuke` (C server)
 
 Server written in C, based on libevent2, OpenGL, GLFW and pthreads. It won't get any faster than this. Prfect for fast networks and large groups.
