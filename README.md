@@ -108,3 +108,7 @@ https://www.youtube.com/watch?v=1Jt-X437MKM
 
 Pixelflut GPN17 Badge  
 https://www.youtube.com/watch?v=JGg4zqqumvs
+
+Rüspeler Tüfteltage (Kliemannsland, 2018)
+https://youtu.be/TijSQYZoRUU?t=6m
+
