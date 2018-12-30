@@ -46,7 +46,7 @@ Server written in Python, based on gevent and pygame. Easy to hack with, but a b
 
 #### `/pixelwar` (java server)
 
-Server written in Java8, based on netty and awt. Optimized for speed and large player groups, fast networks or high resolution projectors. This is probably the most portable version and runs on windows, too.
+Server written in Java8, based on netty and awt. Optimized for speed and large player groups, fast networks or high-resolution projectors. This is probably the most portable version and runs on windows, too.
 
     cd pixelwar
     sudo apt-get install maven openjdk-8-jdk
@@ -60,7 +60,7 @@ or, if you have docker installed but don't want to install maven:
 
 #### `/pixelnuke` (C server)
 
-Server written in C, based on libevent2, OpenGL, GLFW and pthreads. It won't get any faster than this. Prfect for fast networks and large groups.
+Server written in C, based on libevent2, OpenGL, GLFW and pthreads. It won't get any faster than this. Perfect for fast networks and large groups.
 
     cd pixelnuke
     sudo apt-get install build-essential libevent-dev libglew-dev libglfw3-dev
@@ -81,12 +81,12 @@ Additional Commands:
   * `conn:<uint>` Number of currently connected clients.
 
 Planned Features:
-- [x] Toggle between windowed/fullscreen mode and switch monitors in fullscreen-mode.
+- [x] Toggle between windowed/fullscreen mode and switch monitors in fullscreen mode.
 - [ ] Persist pixel buffer between restarts. Use an mmap-ed file for pixel data?
 - [ ] Save to PPM (via key, timer or admin command) and add docs/tools to convert these into a video.
 - [ ] Support to draw directly to a framebuffer (no OpenGL or X Server dependency -> Raspberry-PI compatible)
 - [ ] Showcase-Mode: Players won't draw at the same time, but take turns. Each player gets N seconds of exclusive draw time)
-- [ ] Limit concurrent connections per IP.
+- [ ] Limit concurrent connections on a per IP basis.
 - [ ] Admin commands: Unlock additional commands with a password (e.g. `PX2 <x> <y> <rrggbbaa>` to draw to the overlay layer)
 
 
