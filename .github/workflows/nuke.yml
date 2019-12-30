@@ -1,0 +1,15 @@
+name: build pixelnuke
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install stuff
+      run: sudo apt-get install -y build-essential libevent-dev libglew-dev libglfw3-dev
+    - name: Build
+      run: make -C pixelnuke
+    - uses: actions/upload-artifact@v1
+      with:
+        name: my-artifact
+        path: pixelnuke/pixelnuke
