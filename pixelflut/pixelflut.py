@@ -249,7 +249,9 @@ if __name__ == '__main__':
             canvas.fire('UNLOAD')
             canvas.events.clear()
             try:
-                execfile(brainfile, {'on':canvas.on, '__file__': brainfile})
+                with open(brainfile) as f:
+                    code = compile(f.read(), brainfile, 'exec')
+                    exec(code, {'on':canvas.on, '__file__': brainfile})
             except:
                 log.exception('Brain failed')
                 continue
