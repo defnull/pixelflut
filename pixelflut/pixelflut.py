@@ -35,7 +35,7 @@ class Client(object):
     def send(self, line):
         with self.lock:
             if self.socket:
-                self.socket.sendall(line + '\n')
+                self.socket.sendall(bytes(line + '\n', encoding='UTF-8'))
 
     def nospam(self, line):
         self.send(line)
