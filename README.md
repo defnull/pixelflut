@@ -25,7 +25,7 @@ Example:
     $ echo "SIZE" | netcat pixelflut.example.com 1337
     SIZE 800 600
     $ echo "PX 23 42 ff8000" | netcat pixelflut.example.com 1337
-    $ echo "PX 32 42" | netcat pixelflut.example.com 1337
+    $ echo "PX 23 42" | netcat pixelflut.example.com 1337
     PX 23 42 ff8000
 
 Implementations MAY support additional commands or have less strict parsing rules (e.g. allow `\r\n` or any whitespace between parameters) but they MUST support the commands above. 
