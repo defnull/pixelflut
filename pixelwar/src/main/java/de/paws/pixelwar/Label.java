@@ -5,7 +5,7 @@ import java.awt.Graphics2D;
 
 public class Label extends Drawable {
 
-	public static boolean show = true;
+	public static boolean show = false;
 
 	float x = 0;
 	float y = 0;
