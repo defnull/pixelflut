@@ -5,8 +5,8 @@
 #include <errno.h>
 #include <stdio.h> //sprintf
 
-unsigned int px_width = 1080;
-unsigned int px_height = 1920;
+unsigned int px_width = 1920;
+unsigned int px_height = 1080;
 unsigned int px_pixelcount = 0;
 unsigned int px_clientcount = 0;
 
@@ -187,7 +187,7 @@ int main(int argc, char **argv) {
 	canvas_setcb_key(&px_on_key);
 	canvas_setcb_resize(&px_on_resize);
 
-	canvas_start(1024, &px_on_window_close);
+	canvas_start(1920, &px_on_window_close);
 
 	net_start(1337, &px_on_connect, &px_on_read, &px_on_close);
 	return 0;

@@ -21,7 +21,7 @@ typedef struct CanvasLayer {
 // Global state
 
 static int canvas_display = -1;
-static unsigned int canvas_tex_size = 1024;
+static unsigned int canvas_tex_size = 1920;
 static int canvas_width=0;
 static int canvas_height=0;
 static GLFWwindow* canvas_win;
@@ -131,7 +131,7 @@ static void canvas_window_setup() {
 		glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
 		canvas_win = glfwCreateWindow(mode->width, mode->height, "Pixelflut", monitor, NULL);
 	} else {
-		canvas_win = glfwCreateWindow(1080, 1920, "Pixelflut", NULL, NULL);
+		canvas_win = glfwCreateWindow(1920, 1080, "Pixelflut", NULL, NULL);
 	}
 
 	if (!canvas_win) {
