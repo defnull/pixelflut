@@ -5,8 +5,8 @@
 #include <errno.h>
 #include <stdio.h> //sprintf
 
-unsigned int px_width = 1024;
-unsigned int px_height = 1024;
+unsigned int px_width = 1080;
+unsigned int px_height = 1920;
 unsigned int px_pixelcount = 0;
 unsigned int px_clientcount = 0;
 
