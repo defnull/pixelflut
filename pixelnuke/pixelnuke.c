@@ -183,13 +183,35 @@ void px_on_window_close() {
 	net_stop();
 }
 
+void args_parse_and_act(int argc, char **argv) {
+	for (int arg = 1; arg < argc; ++arg) {
+		switch (argv[arg][0]) { //compare first char of argument
+			case 'H':
+				printf("==pixelnuke commandline arguments==\nH\tshows this help\nF[X]\n starts pixelflut in fullscreen on monitor X\n \tonly numbers 0 to 9. defaults to monitor 0\n");
+				break;
+			case 'F':
+				; //funny C quirk
+				int target_fs_disp = 0;
+				if (argv[arg][1] != 0) { //if not null
+					int possible_num = argv[arg][1] - '0'; //convert to number if in range 0-9
+					if (possible_num >= 0 && possible_num <= 9) { //check if range fits
+						target_fs_disp = possible_num;
+					}
+				}
+				canvas_fullscreen(target_fs_disp); //fullscreen pxnuke on the target screen
+				break;
+		}
+	}
+}
+
 int main(int argc, char **argv) {
 	canvas_setcb_key(&px_on_key);
 	canvas_setcb_resize(&px_on_resize);
 
 	canvas_start(1024, &px_on_window_close);
 
+	args_parse_and_act(argc, argv);
+
 	net_start(1337, &px_on_connect, &px_on_read, &px_on_close);
 	return 0;
 }
-
