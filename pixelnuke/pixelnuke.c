@@ -183,12 +183,12 @@ void px_on_window_close() {
 	net_stop();
 }
 
-void args_parse_and_act(int argc, char **argv) {
+uint8_t args_parse_and_act(int argc, char **argv) {
 	for (int arg = 1; arg < argc; ++arg) {
 		switch (argv[arg][0]) { //compare first char of argument
 			case 'H':
-				printf("==pixelnuke commandline arguments==\nH\tshows this help\nF[screen_id]\tStart fullscreened. You can additionally specify the fullscreen monitor\n\tby adding a screen id from 0 to 9 after the F, the default is 0.\n");
-				break;
+				printf("==pixelnuke commandline arguments==\nH\t\tshows this help\nF[screen_id]\t\tStart fullscreened. You can additionally specify the fullscreen monitor\n\t\tby adding a screen id from 0 to 9 after the F, the default is 0.\n");
+				return 1; //1 means please quit
 			case 'F':
 				; //funny C quirk not allowing lables before declarations
 				int target_fs_disp = 0;
@@ -200,7 +200,7 @@ void args_parse_and_act(int argc, char **argv) {
 				}
 				printf("Fullscreening on display %d due to cmdline arg\n", target_fs_disp);
 				canvas_fullscreen(target_fs_disp); //fullscreen pxnuke on the target screen
-				break;
+				return 0;
 		}
 	}
 }
@@ -211,7 +211,7 @@ int main(int argc, char **argv) {
 
 	canvas_start(1024, &px_on_window_close);
 
-	args_parse_and_act(argc, argv);
+	if (args_parse_and_act(argc, argv)) return 0; //handle args and quit if needed
 
 	net_start(1337, &px_on_connect, &px_on_read, &px_on_close);
 	return 0;
