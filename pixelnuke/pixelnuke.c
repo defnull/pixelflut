@@ -187,7 +187,7 @@ void args_parse_and_act(int argc, char **argv) {
 	for (int arg = 1; arg < argc; ++arg) {
 		switch (argv[arg][0]) { //compare first char of argument
 			case 'H':
-				printf("==pixelnuke commandline arguments==\nH\tshows this help\nF[X]\n starts pixelflut in fullscreen on monitor X\n \tonly numbers 0 to 9. defaults to monitor 0\n");
+				printf("==pixelnuke commandline arguments==\nH\tshows this help\nF[X] starts pixelflut in fullscreen on monitor X\n\tonly numbers 0 to 9. defaults to monitor 0\n");
 				break;
 			case 'F':
 				; //funny C quirk not allowing lables before declarations
