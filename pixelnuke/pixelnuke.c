@@ -187,7 +187,7 @@ uint8_t args_parse_and_act(int argc, char **argv) {
 	for (int arg = 1; arg < argc; ++arg) {
 		switch (argv[arg][0]) { //compare first char of argument
 			case 'H':
-				printf("==pixelnuke commandline arguments==\nH\t\tshows this help\nF[screen_id]\t\tStart fullscreened. You can additionally specify the fullscreen monitor\n\t\tby adding a screen id from 0 to 9 after the F, the default is 0.\n");
+				printf("==pixelnuke commandline arguments==\nH\t\tshows this help\nF[screen_id]\tStart fullscreened. You can additionally specify the fullscreen monitor\n\t\tby adding a screen id from 0 to 9 after the F, the default is 0.\n");
 				return 1; //1 means please quit
 			case 'F':
 				; //funny C quirk not allowing lables before declarations
@@ -203,6 +203,7 @@ uint8_t args_parse_and_act(int argc, char **argv) {
 				return 0;
 		}
 	}
+	return 0;
 }
 
 int main(int argc, char **argv) {
