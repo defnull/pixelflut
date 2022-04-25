@@ -190,7 +190,7 @@ void args_parse_and_act(int argc, char **argv) {
 				printf("==pixelnuke commandline arguments==\nH\tshows this help\nF[X]\n starts pixelflut in fullscreen on monitor X\n \tonly numbers 0 to 9. defaults to monitor 0\n");
 				break;
 			case 'F':
-				; //funny C quirk
+				; //funny C quirk not allowing lables before declarations
 				int target_fs_disp = 0;
 				if (argv[arg][1] != 0) { //if not null
 					int possible_num = argv[arg][1] - '0'; //convert to number if in range 0-9
@@ -198,6 +198,7 @@ void args_parse_and_act(int argc, char **argv) {
 						target_fs_disp = possible_num;
 					}
 				}
+				printf("Fullscreening on display %d due to cmdline arg\n", target_fs_disp);
 				canvas_fullscreen(target_fs_disp); //fullscreen pxnuke on the target screen
 				break;
 		}
