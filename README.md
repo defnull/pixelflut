@@ -67,6 +67,11 @@ Server written in C, based on libevent2, OpenGL, GLFW and pthreads. It won't get
     make
     ./pixelnuke
 
+Commandline Arguments:
+
+* `H`: Show help for commandline arguments
+* `F[screen_id]`: Start fullscreened. You can additionally specify the fullscreen monitor by adding a screen id from 0 to 9 after the F
+
 Keyboard controls:
 
 * `F11`: Toggle between fullscreen and windowed mode
