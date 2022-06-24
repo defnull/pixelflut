@@ -37,12 +37,28 @@ This repository contains multiple implementations of the pixelflut protocol. Pul
 
 ### `/pixelflut` (python server)
 
-Server written in Python, based on gevent and pygame. Easy to hack with, but a bit slow. In fact, it was slowed down on purpose to be more fair and encourage smart drawing techniques instead of image spamming. Perfect for small groups.
+Server written in Python2, based on gevent and pygame. Easy to hack with, but a bit slow. In fact, it was slowed down on purpose to be more fair and encourage smart drawing techniques instead of image spamming. Perfect for small groups.
 
     cd pixelflut
     sudo apt-get install python-gevent python-pygame python-cairo
     mkdir save
-    python pixelflut.py brain.py
+    python2 pixelflut.py brain.py
+
+Alternatively use `pip2` and a virtual environemnt for cleaner dependecy management.
+
+    cd pixelflut
+
+    pip2 install virtualenv
+    python2 -m virtualenv venv
+
+    source venv/bin/activate
+    pip2 install -r requirements.txt
+    mkdir save
+    python2 pixelflut.py brain.py
+
+After exiting, deactivate the virtual environment
+
+    deactivate
 
 #### `/pixelwar` (java server)
 
