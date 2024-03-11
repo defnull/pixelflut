@@ -108,6 +108,7 @@ static void netev_on_write(struct bufferevent *bev, void *arg) {
 			(*netcb_on_close)(client, 0);
 
 		bufferevent_free(bev);
+		printf("bufferevent_free: closed\n");
 		free(client);
 	}
 }
@@ -117,8 +118,11 @@ static void netev_on_error(struct bufferevent *bev, short error, void *arg) {
 
 	// TODO: Some logging?
 	if (error & BEV_EVENT_EOF) {
+		printf("error EOF\n");
 	} else if (error & BEV_EVENT_ERROR) {
+		printf("error ERROR\n");
 	} else if (error & BEV_EVENT_TIMEOUT) {
+		printf("error TIMEOUT\n");
 	}
 
 	client->state = NET_CSTATE_CLOSING;
@@ -126,6 +130,7 @@ static void netev_on_error(struct bufferevent *bev, short error, void *arg) {
 		(*netcb_on_close)(client, error);
 
 	bufferevent_free(bev);
+	printf("bufferevent_free: closed\n");
 	free(client);
 }
 
@@ -135,22 +140,23 @@ static void on_accept(evutil_socket_t listener, short event, void *arg) {
 	socklen_t slen = sizeof(ss);
 	int fd = accept(listener, (struct sockaddr*) &ss, &slen);
 	if (fd < 0) {
-		perror("accept failed");
+		perror("Failed to accept");
 	} else if (fd > FD_SETSIZE) {
 		close(fd); // TODO: verify if this is needed. Only for select()? But libevent uses poll/kqueue?
+		printf("fd closed\n");
 	} else {
 		NetClient *client = calloc(1, sizeof(NetClient));
 		if (client == NULL) {
-			perror("client malloc failed");
+			perror("Filed to calloc client");
 			close(fd);
 			return;
 		}
 
 		client->sock_fd = fd;
+		evutil_make_socket_nonblocking(fd);
 		client->buf_ev = bufferevent_socket_new(base, fd,
 				BEV_OPT_CLOSE_ON_FREE);
 
-		evutil_make_socket_nonblocking(fd);
 		bufferevent_setcb(client->buf_ev, netev_on_read, netev_on_write,
 				netev_on_error, client);
 		bufferevent_setwatermark(client->buf_ev, EV_READ, 0, NET_MAX_BUFFER);
@@ -172,7 +178,10 @@ void net_start(int port, net_on_connect on_connect, net_on_read on_read,
 	struct event *listener_event;
 
 	line_buffer = malloc(sizeof(char)*NET_MAX_LINE);
+	if (!line_buffer)
+		err(1, "Failed to malloc");
 
+	event_enable_debug_mode();
 	evthread_use_pthreads();
 
 	//setvbuf(stdout, NULL, _IONBF, 0);
@@ -189,17 +198,17 @@ void net_start(int port, net_on_connect on_connect, net_on_read on_read,
 
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = 0;
-	sin.sin_port = htons(1337);
+	sin.sin_port = htons(port);
 	listener = socket(AF_INET, SOCK_STREAM, 0);
 	evutil_make_socket_nonblocking(listener);
 	evutil_make_listen_socket_reuseable(listener);
 
 	if (bind(listener, (struct sockaddr*) &sin, sizeof(sin)) < 0) {
-		err(1, "bind failed");
+		err(1, "Failed to bind");
 	}
 
 	if (listen(listener, 16) < 0) {
-		err(1, "listen failed");
+		err(1, "Failed to listen");
 	}
 
 	listener_event = event_new(base, listener, EV_READ | EV_PERSIST, on_accept,
@@ -211,10 +220,12 @@ void net_start(int port, net_on_connect on_connect, net_on_read on_read,
 
 void net_stop() {
 	event_base_loopbreak(base);
-	if(line_buffer) {
-		free(line_buffer);
-		line_buffer = NULL;
-	}
+	//	we cannot free the line_buffer here because it may be needed (doc says
+	//	"will abort the loop *after* the next event is completed").
+	//if(line_buffer) {
+	//	free(line_buffer);
+	//	line_buffer = NULL;
+	//}
 }
 
 void net_send(NetClient *client, const char * msg) {
