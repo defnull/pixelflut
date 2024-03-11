@@ -147,7 +147,7 @@ static void on_accept(evutil_socket_t listener, short event, void *arg) {
 	} else {
 		NetClient *client = calloc(1, sizeof(NetClient));
 		if (client == NULL) {
-			perror("Filed to calloc client");
+			perror("Failed to calloc client");
 			close(fd);
 			return;
 		}
