@@ -52,10 +52,18 @@ static int canvas_do_layout = 0;
 
 static CanvasLayer* canvas_layer_alloc(int size, int alpha) {
 	CanvasLayer * layer = malloc(sizeof(CanvasLayer));
+	if (layer == NULL) {
+		puts("Failed to malloc");
+		exit(1);
+	}
 	layer->size = size;
 	layer->format = alpha ? GL_RGBA : GL_RGB;
 	layer->mem = size * size * (alpha ? 4 : 3);
 	layer->data = malloc(sizeof(GLubyte) * layer->mem);
+	if (layer->data == NULL) {
+		puts("Failed to malloc");
+		exit(1);
+	}
 	memset(layer->data, 0, layer->mem);
 	return layer;
 }
@@ -217,7 +225,7 @@ static void* canvas_render_loop(void * arg) {
 
 	glfwSetErrorCallback(glfw_error_callback);
 	if (!glfwInit()) {
-		puts("GLFW initialization failed");
+		puts("Filed to initializate GLFW");
 		if(canvas_on_close_cb)
 			(*canvas_on_close_cb)();
 		glfwTerminate();
@@ -228,7 +236,7 @@ static void* canvas_render_loop(void * arg) {
 
 	int err = glewInit();
 	if (err != GLEW_OK) {
-		puts("GLEW initialization failed");
+		puts("Failed to initialize GLEW");
 		printf("Error: %s\n", glewGetErrorString(err));
 		if(canvas_on_close_cb)
 			(*canvas_on_close_cb)();
@@ -264,8 +272,8 @@ static void* canvas_render_loop(void * arg) {
 
 		GLuint texSize = canvas_base->size;
 		if(canvas_width > texSize || canvas_height > texSize) {
-		    float scale = ((float) max(canvas_width, canvas_height)) / (float) texSize;
-		    glScalef(scale, scale, 1);
+			float scale = ((float) max(canvas_width, canvas_height)) / (float) texSize;
+			glScalef(scale, scale, 1);
 		}
 
 		canvas_draw_layer(canvas_base);
@@ -397,7 +405,7 @@ void canvas_get_px(unsigned int x, unsigned int y, uint32_t *rgba) {
 void canvas_get_size(unsigned int *w, unsigned int *h) {
 	int texSize = canvas_base->size;
 	if(canvas_width > texSize || canvas_height > texSize) {
-	    float scale = ((float) max(canvas_width, canvas_height)) / texSize;
+		float scale = ((float) max(canvas_width, canvas_height)) / texSize;
 		*w = min(texSize, canvas_width/scale);
 		*h = min(texSize, canvas_height/scale);
 	} else {

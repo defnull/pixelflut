@@ -72,7 +72,7 @@ void px_on_read(NetClient *client, char *line) {
 		uint32_t x = fast_strtoul10(ptr, &endptr);
 		if (endptr == ptr) {
 			net_err(client,
-					"Invalid command (expected decimal as first parameter)");
+					"Invalid command (expected non-negative decimal as first parameter)");
 			return;
 		}
 		if (*endptr == '\0') {
@@ -85,7 +85,7 @@ void px_on_read(NetClient *client, char *line) {
 		uint32_t y = fast_strtoul10((ptr = endptr), &endptr);
 		if (endptr == ptr) {
 			net_err(client,
-					"Invalid command (expected decimal as second parameter)");
+					"Invalid command (expected non-negative decimal as second parameter)");
 			return;
 		}
 
